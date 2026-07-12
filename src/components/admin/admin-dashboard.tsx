@@ -47,6 +47,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/store/auth-context";
 import { useLang } from "@/lib/i18n";
+import { AdSlot } from "@/components/ads";
 import type { Profile, Ad, Setting, AppNotification, CalculatorCategory, Feedback, AdminStats } from "@/types/db";
 
 interface AdminDashboardProps {
@@ -118,6 +119,11 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
           <TabsContent value="categories" className="mt-4"><CategoriesPanel /></TabsContent>
           <TabsContent value="feedback" className="mt-4"><FeedbackPanel /></TabsContent>
         </Tabs>
+
+        {/* Footer banner ad on admin dashboard */}
+        <div className="mt-6 flex justify-center border-t border-border/40 pt-4">
+          <AdSlot placement="footer" />
+        </div>
       </div>
     </div>
   );

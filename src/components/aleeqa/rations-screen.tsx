@@ -59,6 +59,7 @@ import {
   CartesianGrid,
   Tooltip as RTooltip,
 } from "recharts";
+import { AdSection } from "@/components/ads";
 
 type TFunc = (key: string, vars?: Record<string, string | number>) => string;
 type FmtFunc = (n: number, d?: number) => string;
@@ -366,6 +367,9 @@ export function RationsScreen() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Ad at the bottom of rations screen */}
+      <AdSection placement="in-feed" label="إعلان" />
     </div>
   );
 }

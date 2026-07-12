@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { INGREDIENTS, INGREDIENT_ORDER } from "@/lib/feed-data";
 import { useLang } from "@/lib/i18n";
+import { AdSection, AdSmartlink } from "@/components/ads";
 
 const INGREDIENT_EMOJI: Record<string, string> = {
   corn: "🌽",
@@ -124,6 +125,12 @@ export function AboutScreen() {
         <p className="text-[11px] text-muted-foreground">
           {t("about.version")}
         </p>
+      </div>
+
+      {/* Ad at the bottom of about screen */}
+      <AdSection placement="in-feed" label="إعلان" />
+      <div className="flex justify-center">
+        <AdSmartlink variant="banner" />
       </div>
     </div>
   );

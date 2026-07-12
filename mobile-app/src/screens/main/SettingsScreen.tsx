@@ -17,6 +17,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useLang } from "../../utils/i18n";
 import { useAppStore } from "../../store/appStore";
 import { COLORS, APP_VERSION } from "../../utils/constants";
+import { AdBanner320, AdSmartlink } from "../../components/Ads/AdNetwork";
 import { clearCache } from "../../services/storage";
 import * as Notifications from "expo-notifications";
 import type { RootStackParamList } from "../../navigation/types";
@@ -143,6 +144,13 @@ export function SettingsScreen({ navigation }: Props) {
       </Pressable>
 
       <Text style={styles.versionText}>{t("settings.version", { v: APP_VERSION })}</Text>
+      {/* Ad network banner */}
+      <View style={{marginTop: 12}}>
+        <AdBanner320 />
+      </View>
+      <View style={{marginTop: 8, alignItems: "center"}}>
+        <AdSmartlink variant="banner" />
+      </View>
     </ScrollView>
   );
 }

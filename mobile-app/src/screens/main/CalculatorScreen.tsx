@@ -30,6 +30,7 @@ import { IngredientSlider } from "../../components/IngredientSlider";
 import { useCalculation } from "../../hooks/useCalculation";
 import { clamp, fmt } from "../../utils/helpers";
 import { useHistory } from "../../hooks/useHistory";
+import { AdBanner320 } from "../../components/Ads/AdNetwork";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Calculator">;
@@ -285,6 +286,11 @@ export function CalculatorScreen({ navigation, route }: Props) {
             {t("calc.compute_btn")} ›
           </Text>
         </Pressable>
+
+        {/* Banner ad at the bottom of calculator */}
+        <View style={{ marginTop: 16 }}>
+          <AdBanner320 />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

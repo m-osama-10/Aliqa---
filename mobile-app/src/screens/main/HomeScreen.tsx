@@ -21,6 +21,7 @@ import { ANIMAL_ORDER, ANIMALS, type AnimalKey } from "../../api/feedData";
 import { fmt, fmtRelative } from "../../utils/helpers";
 import { AdCard } from "../../components/AdCard";
 import { EmptyState } from "../../components/EmptyState";
+import { AdBanner320, AdNativeBanner, AdSmartlink, AdSection } from "../../components/Ads/AdNetwork";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
@@ -71,6 +72,11 @@ export function HomeScreen({ navigation }: Props) {
         </View>
         <Text style={styles.quickArrow}>‹</Text>
       </Pressable>
+
+      {/* Header banner ad (320x50) */}
+      <View style={{ marginVertical: 8 }}>
+        <AdBanner320 />
+      </View>
 
       {/* Animal grid */}
       <Text style={styles.sectionTitle}>{t("calc.s1.title")}</Text>
@@ -169,6 +175,17 @@ export function HomeScreen({ navigation }: Props) {
           description={t("common.free_offline")}
         />
       ) : null}
+
+      {/* In-feed native ad + smartlink CTA at bottom */}
+      <View style={{ marginTop: 12 }}>
+        <AdNativeBanner />
+        <View style={{ marginTop: 12, alignItems: "center" }}>
+          <AdSmartlink variant="banner" />
+        </View>
+        <View style={{ marginTop: 12 }}>
+          <AdBanner320 />
+        </View>
+      </View>
     </ScrollView>
   );
 }

@@ -25,6 +25,7 @@ import { ANIMALS, ANIMAL_ORDER, INGREDIENTS } from "@/lib/feed-data";
 import { useLang } from "@/lib/i18n";
 import { LanguageToggle } from "./language-toggle";
 import { ThemeToggle } from "./theme-toggle";
+import { AdSlot, AdSection, AdSocialBar, AdSmartlink } from "@/components/ads";
 
 interface LandingScreenProps {
   onEnter: () => void;
@@ -101,6 +102,14 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
       </header>
 
       <main className="flex-1">
+        {/* Top leaderboard ad */}
+        <div className="border-b border-border/40 bg-muted/20 py-2">
+          <div className="mx-auto flex max-w-5xl justify-center px-4">
+            <AdSlot placement="leaderboard" />
+          </div>
+        </div>
+        {/* Global social bar (injected once) */}
+        <AdSocialBar />
         {/* Hero */}
         <section id="top" className="relative overflow-hidden bg-hero-glow">
           <div className="absolute inset-0 bg-dots-pattern opacity-40" />
@@ -146,6 +155,9 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </section>
 
+        {/* In-feed ad after hero */}
+        <AdSection placement="in-feed" label="إعلان" />
+
         {/* Animal strip */}
         <section className="border-y border-border/50 bg-secondary/30">
           <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
@@ -170,6 +182,12 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
             </div>
           </div>
         </section>
+
+        {/* Sidebar + smartlink ad block */}
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4 py-8 sm:flex-row sm:justify-center sm:px-6">
+          <AdSlot placement="sidebar" />
+          <AdSmartlink variant="banner" />
+        </div>
 
         {/* Why use the app */}
         <section id="why" className="scroll-mt-16 py-12 sm:py-16">
@@ -220,6 +238,9 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </section>
 
+        {/* In-feed ad between sections */}
+        <AdSection placement="in-feed" label="إعلان" />
+
         {/* How it works */}
         <section id="how" className="scroll-mt-16 bg-secondary/30 py-12 sm:py-16">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
@@ -248,6 +269,14 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
             </div>
           </div>
         </section>
+
+        {/* In-feed ad + smartlink before Features */}
+        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+          <AdSection placement="in-feed" label="إعلان" />
+          <div className="mt-4 flex justify-center">
+            <AdSmartlink variant="banner" />
+          </div>
+        </div>
 
         {/* Features */}
         <section id="features" className="scroll-mt-16 py-12 sm:py-16">
@@ -306,6 +335,13 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
             </Card>
           </div>
         </section>
+
+        {/* Footer leaderboard ad */}
+        <div className="border-t border-border/40 bg-muted/20 py-3">
+          <div className="mx-auto flex max-w-5xl justify-center px-4">
+            <AdSlot placement="footer" />
+          </div>
+        </div>
       </main>
 
       {/* Footer */}

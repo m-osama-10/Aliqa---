@@ -15,6 +15,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useAuth } from "../../hooks/useAuth";
 import { useLang } from "../../utils/i18n";
 import { COLORS } from "../../utils/constants";
+import { AdBanner320, AdSmartlink } from "../../components/Ads/AdNetwork";
 import { useFavorites } from "../../hooks/useFavorites";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { EmptyState } from "../../components/EmptyState";
@@ -140,6 +141,13 @@ export function FavoritesScreen({ navigation }: Props) {
           })}
         </View>
       )}
+      {/* Ad network banner */}
+      <View style={{marginTop: 12}}>
+        <AdBanner320 />
+      </View>
+      <View style={{marginTop: 8, alignItems: "center"}}>
+        <AdSmartlink variant="banner" />
+      </View>
     </ScrollView>
   );
 }

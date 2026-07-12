@@ -28,6 +28,7 @@ import {
   type PriceProfile,
 } from "@/lib/storage";
 import { useLang } from "@/lib/i18n";
+import { AdSlot, AdSection } from "@/components/ads";
 
 function draftFromPrices(prices: Record<IngredientKey, number>): Record<IngredientKey, string> {
   const d = {} as Record<IngredientKey, string>;
@@ -312,6 +313,12 @@ export function PricesScreen() {
         <p>
           {t("prices.note")}
         </p>
+      </div>
+
+      {/* Ad at the bottom of prices screen */}
+      <AdSection placement="in-feed" label="إعلان" />
+      <div className="flex justify-center">
+        <AdSlot placement="footer" />
       </div>
     </div>
   );

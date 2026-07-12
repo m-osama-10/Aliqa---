@@ -28,6 +28,7 @@ import {
   type IngredientKey,
 } from "../../api/feedData";
 import { clamp, fmt } from "../../utils/helpers";
+import { AdBanner320, AdNativeBanner, AdSmartlink } from "../../components/Ads/AdNetwork";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Results">;
@@ -176,6 +177,17 @@ export function ResultsScreen({ route, navigation }: Props) {
       />
 
       <Text style={styles.disclaimer}>{t("calc.disclaimer")}</Text>
+
+      {/* In-feed native ad + smartlink + banner before back button */}
+      <View style={{ marginVertical: 8 }}>
+        <AdNativeBanner />
+      </View>
+      <View style={{ marginVertical: 8, alignItems: "center" }}>
+        <AdSmartlink variant="banner" />
+      </View>
+      <View style={{ marginBottom: 8 }}>
+        <AdBanner320 />
+      </View>
 
       <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
         <Text style={styles.backText}>‹ {t("common.back")}</Text>

@@ -15,6 +15,7 @@ import {
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useLang } from "../../utils/i18n";
 import { COLORS } from "../../utils/constants";
+import { AdBanner320, AdSmartlink } from "../../components/Ads/AdNetwork";
 import {
   INGREDIENT_ORDER,
   INGREDIENTS,
@@ -183,6 +184,13 @@ export function PricesScreen(_props: Props) {
       <Pressable style={styles.resetBtn} onPress={onReset}>
         <Text style={styles.resetBtnText}>{t("prices.reset_btn")}</Text>
       </Pressable>
+      {/* Ad network banner */}
+      <View style={{marginTop: 12}}>
+        <AdBanner320 />
+      </View>
+      <View style={{marginTop: 8, alignItems: "center"}}>
+        <AdSmartlink variant="banner" />
+      </View>
     </ScrollView>
   );
 }

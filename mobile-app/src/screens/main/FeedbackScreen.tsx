@@ -17,6 +17,7 @@ import { supabase } from "../../api/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { useLang } from "../../utils/i18n";
 import { COLORS } from "../../utils/constants";
+import { AdBanner320, AdSmartlink } from "../../components/Ads/AdNetwork";
 import { validateFeedback } from "../../utils/validation";
 
 export function FeedbackScreen() {
@@ -151,7 +152,14 @@ export function FeedbackScreen() {
             </Pressable>
           </View>
         )}
-      </ScrollView>
+      {/* Ad network banner */}
+      <View style={{marginTop: 12}}>
+        <AdBanner320 />
+      </View>
+      <View style={{marginTop: 8, alignItems: "center"}}>
+        <AdSmartlink variant="banner" />
+      </View>
+    </ScrollView>
     </KeyboardAvoidingView>
   );
 }

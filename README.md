@@ -1,278 +1,278 @@
-# Alieqa — حاسبة العليقة الذكية | Smart Feed Calculator
+# 🌾 عليقة | Alieqa — حاسبة العليقة الذكية
 
-A production-grade **animal-feed ration calculator** with a **Supabase backend**, **offline-first sync**, **dynamic ads & settings**, **push notifications**, a full **admin dashboard**, and a companion **React Native / Expo mobile app**.
+> **أداة تقنية مجانية تساعد مربي الأبقار والجاموس والأغنام والدواجن في مصر على تركيب العلائق الغذائية بدقة علمية وبأقل تكلفة — محرك برمجة خطية يعمل أوفلاين.**
 
-Built for Egyptian livestock farmers (cattle, buffalo, sheep, poultry) using a **Linear Programming** engine that computes the cheapest balanced ration meeting each animal's protein, energy, and fiber requirements.
+<div dir="rtl">
 
----
+## 📋 ملخص المشروع
 
-## What's in this repository
+**عليقة** هو مشروع متكامل (موقع ويب + تطبيق موبايل + خلفية Supabase) يحل مشكلة حساب العليقة الغذائية للمربي المصري بدلاً من الورقة والقلم والتجربة والخطأ. يستخدم محرك **برمجة خطية (Linear Programming)** لحساب أرخص عليقة متوازنة تحقق احتياجات الحيوان من البروتين والطاقة والألياف.
 
-| Path | What |
-|------|------|
-| `src/` | **Next.js 16 web app** — the live website + web version of the calculator (runs on port 3000) |
-| `mobile-app/` | **React Native / Expo** mobile app source (SDK 52, RN 0.76) |
-| `supabase/migrations/0001_init_alieqa.sql` | **Complete SQL migration** — 12 tables, RLS, indexes, triggers, policies, seed data, RPCs |
-| `public/manifest.json` | PWA manifest for the web app |
+### 🎯 المشكلة التي يحلها
+المربي المصري يحسب العليقة يدوياً بورقة وقلم، ويعتمد على التجربة والخطأ، مما يسبب:
+- تكلفة أعلى من اللازم
+- علائق غير متوازنة غذائياً
+- هدر في المكوّنات
+- صعوبة التعديل عند تغيّر الأسعار
 
----
-
-## Tech stack
-
-### Web (Next.js)
-- **Next.js 16** App Router + **TypeScript 5**
-- **Tailwind CSS 4** + **shadcn/ui** (New York)
-- **@supabase/ssr** + **@supabase/supabase-js** (publishable key only — RLS enforced)
-- **Zustand** for auth/app state
-- Offline cache via `localStorage` + pending-ops queue + exponential-backoff retry
-
-### Mobile (Expo)
-- **Expo SDK 52** + **React Native 0.76** + **TypeScript**
-- **React Navigation v7** (auth stack + bottom tabs + admin stack)
-- **@supabase/supabase-js**
-- **expo-notifications** for push, **AsyncStorage** for offline cache
-- **Zustand** stores (auth, app, sync)
-- Feature-based architecture: `api/ components/ hooks/ screens/ services/ store/ types/ utils/`
-
-### Backend (Supabase)
-- **PostgreSQL** with **Row Level Security** on every table
-- 12 tables: `profiles, subscriptions, notifications, ads, settings, calculators, calculator_categories, favorites, history, feedback, app_versions, device_tokens`
-- RPCs: `get_public_settings()`, `get_active_ads()`, `increment_ad_stat()`, `get_unread_count()`, `is_admin()`
-- Auto-profile creation trigger on signup
-- `updated_at` triggers, soft-delete columns, composite indexes
+### ✅ الحل
+تطبيق ذكي يحسب في ثوانٍ، بأسعار سوقك أنت، أرخص تركيبة عليقة تحقق الاحتياجات الغذائية لكل نوع حيوان — **بدون إنترنت**.
 
 ---
 
-## Database schema overview
+## ✨ المزايا الرئيسية
+
+| الميزة | الوصف |
+|--------|-------|
+| 🧮 **محرك برمجة خطية** | حساب أرخص عليقة متوازنة (بروتين + طاقة + ألياف) |
+| 🐄 **9 أنواع حيوانات** | بقرة حلوب، جاموس حلوب، جاموس تسمين، خروف، عجل، دجاج بياض، أمهات بياض، دجاج تسمين، كتاكيت بادي |
+| 🌾 **6 مكوّنات سوق** | ذرة، صويا، ردة، دريس، تبن، إضافات |
+| 💰 **أسعار قابلة للتعديل** | حدّث الأسعار بأسعار سوقك الأسبوعي |
+| 📱 **يعمل أوفلاين** | كل الحسابات والأسعار والعلائق محفوظة على جهازك |
+| 🌐 **ثنائي اللغة** | عربي (RTL) + إنجليزي (LTR) |
+| 🌙 **وضع ليلي** | تصميم بألوان زراعية (أخضر + ذهبي) |
+| 📤 **مشاركة سريعة** | واتساب، طباعة، PDF |
+| 🔔 **إشعارات فورية** | عبر Expo Push Notifications |
+| 📊 **لوحة تحكم للأدمن** | إدارة المستخدمين والإعلانات والإعدادات |
+
+---
+
+## 🏗️ بنية المشروع
 
 ```
-profiles ─┬─< subscriptions
-          ├─< favorites ─> calculators ─> calculator_categories
-          ├─< history ────> calculators
-          ├─< feedback
-          ├─< device_tokens
-          └─< notifications (user_id or is_broadcast)
-
-ads               (dynamic, served to all users)
-settings          (dynamic key-value, public/private)
-app_versions      (force-update checks)
+aleeqa/
+├── src/                          ← موقع Next.js 16 (يعمل الآن على port 3000)
+│   ├── app/                      ← الصفحة الرئيسية
+│   ├── components/
+│   │   ├── aleeqa/               ← شاشات التطبيق (الحاسبة، الأسعار، العلائق، حول)
+│   │   ├── ads/                  ← 7 وحدات إعلانية موزّعة على المشروع كله
+│   │   ├── admin/                ← لوحة تحكم الأدمن
+│   │   ├── auth/                 ← تسجيل الدخول/حساب جديد/ضيف
+│   │   └── ui/                   ← مكونات shadcn/ui
+│   ├── lib/
+│   │   ├── supabase/             ← اتصال Supabase (publishable key فقط)
+│   │   ├── services/             ← settings, ads, calculators, favorites, history...
+│   │   ├── store/                ← Zustand (auth, app state)
+│   │   ├── offline/              ← cache + sync engine + retry
+│   │   ├── feed-data.ts          ← قاعدة بيانات المكوّنات والحيوانات
+│   │   ├── feed-lp.ts            ← محرك البرمجة الخطية
+│   │   └── i18n.tsx              ← ترجمات عربي/إنجليزي
+│   └── types/db.ts               ← أنواع TypeScript مطابقة لقاعدة البيانات
+│
+├── mobile-app/                   ← تطبيق React Native / Expo (SDK 52)
+│   ├── src/
+│   │   ├── api/                  ← supabase, auth, calculators, favorites, ads...
+│   │   ├── components/
+│   │   │   ├── Ads/              ← مكونات الإعلانات (WebView-based)
+│   │   │   └── ...               ← مكونات أخرى
+│   │   ├── screens/
+│   │   │   ├── auth/             ← Login, Register, ForgotPassword
+│   │   │   ├── main/             ← Home, Calculator, Results, Favorites, History...
+│   │   │   └── admin/            ← Dashboard, Users, Ads, Settings...
+│   │   ├── services/             ← rationOptimizer, syncEngine, pushNotifications
+│   │   ├── store/                ← authStore, appStore, syncStore (Zustand)
+│   │   └── navigation/           ← React Navigation (auth + tabs + admin stacks)
+│   ├── app.json                  ← إعدادات Expo
+│   └── eas.json                  ← بناء APK (production + preview)
+│
+├── supabase/migrations/
+│   └── 0001_init_alieqa.sql      ← SQL كامل (12 جدول + RLS + indexes + policies)
+│
+└── public/                       ← أيقونات + manifest
 ```
 
-Every table has:
-- `id uuid pk default gen_random_uuid()`
-- `created_at timestamptz default now()`
-- `updated_at timestamptz` (trigger-maintained)
-- `deleted_at timestamptz` (soft delete)
-- Indexes on foreign keys + common query columns
-- RLS policies (public read for catalogs; owner-only for user data; admin-only for management)
-
 ---
 
-## Authentication
+## 🗄️ قاعدة البيانات (Supabase)
 
-| Feature | Status |
-|---------|--------|
-| Email + password login | ✅ |
-| Registration (email confirmation) | ✅ |
-| Forgot password (reset email) | ✅ |
-| Remember me (persisted session) | ✅ |
-| Guest mode (local-only) | ✅ |
-| Auto profile creation on signup | ✅ (DB trigger) |
-| RLS-protected routes | ✅ |
+### الجداول (12 جدول)
+| الجدول | الوصف |
+|--------|-------|
+| `profiles` | ملفات المستخدمين (1-1 مع auth.users) |
+| `subscriptions` | اشتراكات (free/pro/premium) |
+| `notifications` | إشعارات (فردية أو broadcast) |
+| `ads` | إعلانات ديناميكية من الأدمن |
+| `settings` | إعدادات التطبيق (maintenance, version, social links...) |
+| `calculators` | الآلات الحاسبة |
+| `calculator_categories` | تصنيفات الآلات الحاسبة |
+| `favorites` | المفضلات (لكل مستخدم) |
+| `history` | سجل العمليات |
+| `feedback` | ملاحظات المستخدمين |
+| `app_versions` | إصدارات التطبيق (force update) |
+| `device_tokens` | توكنز الإشعارات (Expo Push) |
 
----
+### الأمان
+- ✅ **Row Level Security** مفعّل على كل جدول
+- ✅ **Publishable Key فقط** (لا Service Role Key في الكود)
+- ✅ Policies: عام للقراءة، مالك للبيانات، أدمن للإدارة
+- ✅ Soft delete (`deleted_at`) على كل جدول
+- ✅ Triggers لـ `updated_at` + إنشاء profile تلقائي عند التسجيل
 
-## Offline support
-
-- **Cache**: settings, ads, calculators, categories → `localStorage` (web) / `AsyncStorage` (mobile) with TTL
-- **Pending ops queue**: favorites/history writes queue locally when offline
-- **Auto-sync**: on `online` event + every 60s while online
-- **Conflict handling**: last-write-wins via `updated_at`; soft-deletes idempotent
-- **Retry**: exponential backoff (500ms × 2ⁿ, max 3 attempts)
-
----
-
-## Ads (dynamic, never hardcoded)
-
-Each ad has: `title, description, image_url, button_text, link_url, placement, priority, enabled, start_date, end_date, impressions, clicks`.
-
-- Served via `get_active_ads(placement)` RPC (public, RLS-bypassed, safe)
-- Impressions & clicks tracked via `increment_ad_stat()` RPC
-- Admin can create/enable/disable/delete from the dashboard
-- Master switch: `settings.ads_enabled`
-
----
-
-## App settings (dynamic)
-
-Loaded from Supabase `settings` table via `get_public_settings()` RPC. Includes:
-`maintenance_mode, minimum_version, privacy_policy, terms, contact_email, support_url, facebook, whatsapp, telegram, app_name, primary_color, ads_enabled, max_history_items, max_favorites_items`
-
-Maintenance mode blocks the app for everyone except admins.
-
----
-
-## Notifications
-
-- Web: in-app notification center (bell icon, unread badges)
-- Mobile: **Expo Push Notifications** — token registered on login, stored in `device_tokens` table
-- Admin can send **broadcast** (all users) or **targeted** notifications
-- Types: `info, warning, success, error, ad, system`
-
----
-
-## Admin dashboard
-
-Accessible only to users with `role = 'admin'` in their profile. To make a user admin, run in SQL editor:
+### تشغيل SQL
+1. افتح مشروع Supabase → **SQL Editor** → New query
+2. **انسخ محتوى** الملف `supabase/migrations/0001_init_alieqa.sql` (وليس المسار!)
+3. الصق المحتوى في المحرر → Run
+4. (اختياري) اجعل نفسك أدمن:
 ```sql
-update profiles set role = 'admin' where email = 'you@example.com';
+UPDATE profiles SET role = 'admin' WHERE email = 'you@example.com';
 ```
-
-Dashboard sections:
-1. **Overview** — KPI cards (users, calculators, active ads, open feedback)
-2. **Users** — list, toggle admin role, soft-delete
-3. **Ads** — CRUD ads, enable/disable, view stats
-4. **Settings** — edit any setting (boolean toggle or text input)
-5. **Notifications** — send broadcast/targeted notifications, view history
-6. **Categories** — enable/disable/delete calculator categories
-7. **Analytics** — ad impressions, clicks, CTR, favorites/history counts, recent feedback
 
 ---
 
-## Running the web app
+## 🔐 المصادقة (Authentication)
 
-The dev server runs on port 3000:
+| الميزة | الحالة |
+|--------|-------|
+| تسجيل دخول بالبريد + كلمة المرور | ✅ |
+| حساب جديد (تأكيد بالبريد) | ✅ |
+| نسيت كلمة المرور | ✅ |
+| تذكّرني (حفظ الجلسة) | ✅ |
+| وضع الضيف (بدون حساب) | ✅ |
+| إنشاء profile تلقائي | ✅ (trigger) |
+
+---
+
+## 📡 الإعلانات (7 وحدات)
+
+وزّعنا **7 وحدات إعلانية** على المشروع كله (موقع + موبايل):
+
+| # | الوحدة | النوع | أماكن الظهور |
+|---|--------|-------|--------------|
+| 1 | **Smartlink** | رابط | صفحة الهبوط، الحاسبة، النتائج، حسابي |
+| 2 | **Native Banner** | script+div | بين أقسام الصفحة الرئيسية، النتائج |
+| 3 | **Social Bar** | script | شريط عائم في كل الصفحات |
+| 4 | **Banner 468×60** | iframe | أعلى الصفحة (تابلت) |
+| 5 | **Banner 320×50** | iframe | أعلى/أسفل الصفحة (موبايل) |
+| 6 | **Banner 728×90** | iframe | أعلى/أسفل الصفحة (ديسكتوب) |
+| 7 | **Banner 160×300** | iframe | الشريط الجانبي |
+
+### أماكن التوزيع
+- **الموقع**: الصفحة الرئيسية (5 مواضع)، الحاسبة، الأسعار، العلائق، حول، تسجيل الدخول، لوحة الأدمن
+- **الموبايل**: الرئيسية، الحاسبة، النتائج، المفضلة، السجل، الأسعار، الإشعارات، الإعدادات، حسابي، ملاحظات
+
+الإعلانات **responsive** — تختار الحجم المناسب حسب عرض الشاشة تلقائياً.
+
+---
+
+## 📱 تشغيل الموقع (Vercel)
+
+الموقع مبني بـ **Next.js 16** ويعمل على Vercel مباشرة:
+
 ```bash
-bun install
+# 1. ثبّت المتطلبات
+bun install   # أو: npm install
+
+# 2. شغّل محلياً
 bun run dev   # http://localhost:3000
+
+# 3. للنشر على Vercel
+# - ارفع المشروع لـ GitHub
+# - اربطه بـ Vercel
+# - أضف متغيرات البيئة:
+#   NEXT_PUBLIC_SUPABASE_URL=https://lepdythxcdurjwncxnnt.supabase.co
+#   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_nWluULZyJ-hU3f42jd0mbg_8iNXWxkp
 ```
 
-Environment (already configured in `.env`):
+---
+
+## 📲 بناء تطبيق الموبايل (APK)
+
+تطبيق الموبايل في مجلد `mobile-app/` — مبني بـ **Expo SDK 52 + React Native 0.76**:
+
+### الطريقة الموصى بها: EAS Build (سحابي)
+```bash
+cd mobile-app
+
+# 1. ثبّت المتطلبات
+npm install
+
+# 2. ثبّت EAS CLI
+npm install -g eas-cli
+
+# 3. سجّل دخول Expo
+eas login
+
+# 4. اربط المشروع
+eas build:configure
+
+# 5. ابنِ الـ APK (يتم البناء في سحابة Expo)
+eas build -p android --profile production
 ```
+
+الـ `eas.json` مضبوط بـ `buildType: "apk"` للـ production و preview.
+
+### تشغيل محلي (بدون بناء)
+```bash
+cd mobile-app
+npm install
+npx expo start
+# اضغط 'a' للأندرويد، 'i' للـ iOS
+```
+
+---
+
+## 🔧 المتغيرات البيئية
+
+أنشئ ملف `.env` في جذر المشروع (للموقع):
+```env
 NEXT_PUBLIC_SUPABASE_URL=https://lepdythxcdurjwncxnnt.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_nWluULZyJ-hU3f42jd0mbg_8iNXWxkp
 ```
 
-### One-time Supabase setup
-1. Open your Supabase project → **SQL Editor**
-2. Paste the contents of `supabase/migrations/0001_init_alieqa.sql`
-3. Run it — creates all tables, RLS, indexes, triggers, seeds
-4. In Supabase → **Authentication → Providers → Email**: enable Email + Confirm email (optional)
-5. (Optional) Promote yourself to admin:
-   ```sql
-   update profiles set role = 'admin' where email = 'you@example.com';
-   ```
+وللتطبيق في `mobile-app/src/api/supabase.ts` و `mobile-app/app.json` (موجودين مسبقاً).
+
+> ⚠️ **مهم**: لا تستخدم Service Role Key أبداً — RLS يحمي كل الوصول.
 
 ---
 
-## Building the mobile APK
+## 🎨 التقنيات المستخدمة
 
-The mobile app lives in `mobile-app/`. To build an APK:
+### الموقع
+- Next.js 16 (App Router) + TypeScript 5
+- Tailwind CSS 4 + shadcn/ui
+- @supabase/ssr + @supabase/supabase-js
+- Zustand للحالة
+- خط Cairo للعربية
 
-```bash
-cd mobile-app
+### الموبايل
+- Expo SDK 52 + React Native 0.76
+- React Navigation v7
+- expo-notifications + expo-secure-store
+- react-native-webview (للإعلانات)
+- Zustand
 
-# 1. Install dependencies
-npm install        # or: bun install / yarn install
-
-# 2. Install EAS CLI (if not already)
-npm install -g eas-cli
-
-# 3. Log in to Expo
-eas login
-
-# 4. Configure the project (first time only)
-eas build:configure
-
-# 5. Build a production APK
-eas build -p android --profile production
-
-#    — or a preview/internal APK —
-eas build -p android --profile preview
-```
-
-The `eas.json` is preconfigured with `buildType: "apk"` for both `preview` and `production` profiles.
-
-### Local development (no EAS)
-```bash
-cd mobile-app
-npm install
-npx expo start                    # Metro bundler
-# press 'a' to open on Android emulator, 'i' for iOS
-```
-
-### Mobile app credentials
-Already embedded in `app.json` → `extra.supabaseUrl` and `extra.supabasePublishableKey`, plus `src/api/supabase.ts`. **Never use the service role key** — RLS enforces all access.
+### الخلفية
+- Supabase (PostgreSQL + Auth + Realtime + Storage)
+- Row Level Security على كل جدول
+- RPCs: `get_public_settings`, `get_active_ads`, `increment_ad_stat`, `get_unread_count`
 
 ---
 
-## Folder structure (web)
+## 🔌 الدعم الأوفلاين
 
-```
-src/
-  app/                  Next.js App Router
-    layout.tsx          Root layout (RTL, dark mode, manifest)
-    page.tsx            Single-page app (landing → auth → shell → admin)
-  components/
-    aleeqa/             Original calculator UI (landing, calculator, prices, rations, about)
-    admin/              Admin dashboard (users, ads, settings, notifications, categories, analytics)
-    auth/               Auth screen (login/register/forgot/guest)
-    common/             AdBanner
-    ui/                 shadcn/ui components
-    app-shell.tsx       Main app shell (tabs, ads, offline indicator, auth gate)
-    profile-screen.tsx  Profile / favorites / history / notifications / feedback / settings
-  lib/
-    supabase/           client.ts (browser) + server.ts (SSR)
-    services/           settings, ads, calculators, favorites, history, notifications, auth
-    store/              auth-store, app-store, auth-context (Zustand)
-    offline/            cache, network, sync-engine
-    feed-data.ts        Ingredient DB + animal profiles (9 species)
-    feed-lp.ts          Linear programming ration optimizer
-    ration-report.ts    Report generator (PDF/WhatsApp/print)
-    i18n.tsx            Arabic + English translations
-    storage.ts          localStorage hooks (prices, rations)
-  types/
-    db.ts               Database row types mirroring SQL schema
-```
-
-## Folder structure (mobile)
-
-```
-mobile-app/
-  app.json              Expo config (plugins, permissions, EAS)
-  eas.json              Build profiles (apk for preview + production)
-  index.ts              Entry → registerRootComponent(App)
-  src/
-    App.tsx             Root (GestureHandler, SafeArea, StatusBar)
-    api/                supabase, auth, calculators, favorites, history, ads, settings, notifications, deviceTokens, feedData
-    components/         AdBanner, AdCard, RationResultCard, IngredientSlider, LoadingSpinner, EmptyState, ErrorView, OfflineBanner
-    hooks/              useAuth, useCalculation, useFavorites, useHistory, useAds, useSettings, useNotifications, useOfflineSync, useNetworkStatus
-    navigation/         AppNavigator (auth/main/admin stacks), types
-    screens/
-      auth/             Login, Register, ForgotPassword
-      main/             Home, Calculator, Results, Favorites, History, Prices, Notifications, Settings, Profile, About, Feedback
-      admin/            Dashboard, Users, Ads, Settings, Notifications, Categories, Analytics
-    services/           storage (AsyncStorage), syncEngine, pushNotifications, rationOptimizer (LP solver)
-    store/              authStore, appStore, syncStore (Zustand)
-    types/              db.ts (mirrors web), index.ts
-    utils/              constants, helpers, validation, i18n (ar/en, RTL)
-```
+- **Cache**: إعدادات + إعلانات + آلات حاسبة + تصنيفات → localStorage (ويب) / AsyncStorage (موبايل)
+- **Pending ops queue**: المفضلة والسجل يُحفظون محلياً عند انقطاع الإنترنت
+- **Auto-sync**: عند عودة الإنترنت + كل 60 ثانية
+- **Retry**: exponential backoff (500ms × 2ⁿ)
 
 ---
 
-## Security
+## 📊 لوحة تحكم الأدمن
 
-- **RLS enabled on every table** — no `service_role` key in the app, ever
-- **Publishable/anon key only** — safe to ship in client bundles
-- `is_admin()` SQL function checks `profiles.role = 'admin'` for the current `auth.uid()`
-- Admin-only policies on `ads, settings, calculator_categories, calculators, app_versions`
-- Owner-only policies on `favorites, history, device_tokens, subscriptions`
-- Input validation: Zod on web, manual validation on mobile
-- Error handling + loading states + retry on every async path
-- Soft-delete everywhere (`deleted_at`) — no destructive deletes
+يمكن الوصول لها من تبويب "حسابي" → "لوحة التحكم" (للمستخدمين بدور admin فقط):
+
+1. **نظرة عامة** — إحصائيات (مستخدمين، إعلانات، ملاحظات)
+2. **المستخدمون** — قائمة + ترقية لأدمن + حذف
+3. **الإعلانات** — إضافة/تعديل/حذف/تفعيل
+4. **الإعدادات** — تعديل أي إعداد (maintenance, version, روابط...)
+5. **الإشعارات** — إرسال broadcast أو فردي
+6. **التصنيفات** — تفعيل/حذف تصنيفات الآلات الحاسبة
+7. **الملاحظات** — عرض + تغيير الحالة
 
 ---
 
-## License
+## 📄 الترخيص
 
-Proprietary — Alieqa © 2025
+Proprietary — عليقة © 2025
+
+</div>
