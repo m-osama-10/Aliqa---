@@ -634,31 +634,36 @@ export function CalculatorScreen() {
               <span className="text-[10px] text-muted-foreground">{t("common.default_prices")}</span>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {selectedIngredientObjects.map((ing) => {
-              const ingShort = lang === "ar" ? ing.name : ing.nameEn;
+              const ingName = lang === "ar" ? ing.name : ing.nameEn;
               return (
                 <div
                   key={ing.key}
-                  className="flex items-center gap-2 rounded-lg border border-border/50 bg-card px-2.5 py-1.5"
+                  className="flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-2"
                 >
-                  <span className="text-lg">{ing.emoji}</span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-base">{ing.emoji}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[11px] font-bold text-foreground">{ingShort}</p>
+                    <p className="text-xs font-bold text-foreground leading-tight">{ingName}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {lang === "ar" ? "بروتين" : "CP"}: {ing.protein}% · {lang === "ar" ? "طاقة" : "TDN"}: {ing.tdn}%
+                    </p>
                   </div>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={0.5}
-                    value={prices[ing.key] ?? ing.price}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (isFinite(v) && v >= 0) updatePrice(ing.key as never, v);
-                    }}
-                    className="w-14 rounded-md border border-border bg-background px-1 py-0.5 text-center text-[11px] font-extrabold tabular-nums focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-                  />
-                  <span className="text-[9px] text-muted-foreground">{t("common.egp")}</span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={0.5}
+                      value={prices[ing.key] ?? ing.price}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (isFinite(v) && v >= 0) updatePrice(ing.key as never, v);
+                      }}
+                      className="w-16 rounded-md border border-border bg-background px-1.5 py-1 text-center text-sm font-extrabold tabular-nums focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">{lang === "ar" ? "ج/كجم" : "EGP/kg"}</span>
+                  </div>
                 </div>
               );
             })}

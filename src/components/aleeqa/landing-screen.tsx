@@ -137,7 +137,7 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
                   <Sprout className="h-3.5 w-3.5" />
                   {t("common.free_offline")}
                 </Badge>
-                <h1 className="text-balance text-3xl font-black leading-[1.15] text-foreground sm:text-4xl lg:text-5xl">
+                <h1 className="text-balance text-3xl font-black leading-[1.4] text-foreground sm:text-4xl lg:text-5xl">
                   {t("landing.hero.title1")}
                   <br />
                   <span className="text-gradient-green">{t("landing.hero.title2")}</span> {t("landing.hero.title3")}

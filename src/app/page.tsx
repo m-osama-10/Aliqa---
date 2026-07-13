@@ -13,10 +13,15 @@ import { LanguageProvider } from "@/lib/i18n";
 /* ---------- entered flag (localStorage) ---------- */
 const ENTERED_KEY = "aleeqa.entered.v1";
 const listeners = new Set<() => void>();
+let enteredCache: boolean | null = null; // null = not yet read from localStorage
+
 function subscribe(cb: () => void) {
   listeners.add(cb);
   const onStorage = (e: StorageEvent) => {
-    if (e.key === ENTERED_KEY) cb();
+    if (e.key === ENTERED_KEY) {
+      enteredCache = null; // invalidate cache
+      cb();
+    }
   };
   window.addEventListener("storage", onStorage);
   return () => {
@@ -28,10 +33,13 @@ function notify() {
   listeners.forEach((l) => l());
 }
 function getSnapshot(): boolean {
-  return localStorage.getItem(ENTERED_KEY) === "1";
+  if (enteredCache === null) {
+    enteredCache = localStorage.getItem(ENTERED_KEY) === "1";
+  }
+  return enteredCache;
 }
 function getServerSnapshot(): boolean {
-  return false;
+  return false; // SSR always renders landing page
 }
 
 /* ---------- UI overlay flags (zustand) ---------- */
