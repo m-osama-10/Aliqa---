@@ -129,9 +129,14 @@ function AppInner() {
   }
 
   // Landing or App
+  // On first client render, always show Landing (enteredCache starts null → false)
+  // After mount, if localStorage has "1", entered becomes true → AppShell
   if (!entered) {
     return <LandingScreen onEnter={enter} />;
   }
+
+  // If entered but no user and not guest, still show AppShell (guest-like access)
+  // The AppShell will prompt for login when needed
 
   return (
     <AppShell
