@@ -116,7 +116,10 @@ export function AppShell({ onHome, onShowAuth, onShowAdmin }: AppShellProps) {
       {/* Global social bar ad (injected once) */}
       <AdSocialBar />
       {/* Header leaderboard ad (728x90 desktop / 320x50 mobile) */}
-      <div className="border-b border-border/40 bg-muted/20 py-2">
+      <div
+        className="border-b border-border/40 bg-muted/20 py-2"
+        style={{ paddingTop: isMobileApp ? "env(safe-area-inset-top, 24px)" : undefined }}
+      >
         <div className="mx-auto flex max-w-3xl w-full justify-center px-2">
           <AdSlot placement="header" />
         </div>
