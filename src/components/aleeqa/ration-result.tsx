@@ -153,6 +153,9 @@ export function RationResult({
                 {fmt(result.costPerKg)}{" "}
                 <span className="text-xs text-muted-foreground">{t("common.egp")}</span>
               </p>
+              <p className="text-[10px] text-muted-foreground">
+                {fmt(result.costPerTon || 0)} {t("common.egp")}/{lang === "ar" ? "طن" : "ton"}
+              </p>
             </>
           )}
         </div>

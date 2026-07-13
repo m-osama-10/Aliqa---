@@ -110,7 +110,7 @@ export function AboutScreen() {
                   className={`mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br ${member.gradient} text-lg font-black text-white shadow-sm`}
                 >
                   {member.photo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img
                       src={member.photo}
                       alt={member.name}

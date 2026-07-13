@@ -23,7 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ANIMALS, ANIMAL_ORDER, INGREDIENTS } from "@/lib/feed-data";
+import { ANIMALS, ANIMAL_ORDER } from "@/lib/feed-data";
 import { useLang } from "@/lib/i18n";
 import { LanguageToggle } from "./language-toggle";
 import { ThemeToggle } from "./theme-toggle";

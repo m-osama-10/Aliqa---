@@ -212,7 +212,7 @@ export function printRationReport(params: ReportParams) {
   @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
   body {
-    font-family: "Cairo", "Segoe UI", Tahoma, sans-serif;
+    font-family: "Alexandria", "Segoe UI", Tahoma, sans-serif;
     color: #1a2b22;
     margin: 0;
     padding: 0;

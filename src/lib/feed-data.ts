@@ -744,6 +744,7 @@ export interface FormulationResult {
   costPerKg: number; // EGP/kg of ration
   costPerMonth: number; // EGP/month (30d, total)
   costPerAnimal: number; // EGP/day per single animal
+  costPerTon: number; // EGP/ton (1000 kg)
   achieved: { cp: number; tdn: number; fiber: number };
   targets: { cpMin: number; tdnMin: number; fiberMax: number };
   feasible: boolean;
