@@ -1,0 +1,816 @@
+     1→/* ================================================================== */
+     2→/*  LINEAR PROGRAMMING SOLVER — Big-M Simplex Method                   */
+     3→/*                                                                     */
+     4→/*  Solves: minimize  c · x                                            */
+     5→/*          subject to A x {<=, =, >=} b                               */
+     6→/*                     0 <= x <= ub                                    */
+     7→/*                                                                     */
+     8→/*  Used by the feed formulation engine to find the cheapest balanced  */
+     9→/*  ration. Runs entirely client-side (offline-first, APK-ready).      */
+    10→/* ================================================================== */
+    11→
+    12→type Rel = "<=" | ">=" | "=";
+    13→
+    14→interface Constraint {
+    15→  coeff: number[];
+    16→  op: Rel;
+    17→  rhs: number;
+    18→}
+    19→
+    20→interface LPResult {
+    21→  x: number[];
+    22→  obj: number;
+    23→  feasible: boolean;
+    24→}
+    25→
+    26→const EPS = 1e-9;
+    27→const BIG_M = 1e7;
+    28→const MAX_ITER = 2000;
+    29→
+    30→/**
+    31→ * Minimize c·x subject to constraints and variable upper bounds.
+    32→ * Returns null-equivalent (feasible=false) when infeasible.
+    33→ */
+    34→export function solveLP(
+    35→  cost: number[],
+    36→  constraints: Constraint[],
+    37→  upperBounds: number[]
+    38→): LPResult {
+    39→  const nVars = cost.length;
+    40→
+    41→  // Fold upper bounds into constraint set (x_i <= ub_i).
+    42→  const allCons: Constraint[] = [...constraints];
+    43→  for (let i = 0; i < nVars; i++) {
+    44→    if (isFinite(upperBounds[i]) && upperBounds[i] < 1e9) {
+    45→      const coeff = new Array(nVars).fill(0);
+    46→      coeff[i] = 1;
+    47→      allCons.push({ coeff, op: "<=", rhs: upperBounds[i] });
+    48→    }
+    49→  }
+    50→
+    51→  const nCon = allCons.length;
+    52→  let nSlack = 0;
+    53→  let nSurplus = 0;
+    54→  let nArt = 0;
+    55→  for (const c of allCons) {
+    56→    if (c.op === "<=") nSlack++;
+    57→    else if (c.op === ">=") {
+    58→      nSurplus++;
+    59→      nArt++;
+    60→    } else nArt++;
+    61→  }
+    62→
+    63→  const totalVars = nVars + nSlack + nSurplus + nArt;
+    64→
+    65→  // Build tableau A (nCon x totalVars), b (nCon), objective row (totalVars).
+    66→  const A: number[][] = Array.from({ length: nCon }, () =>
+    67→    new Array(totalVars).fill(0)
+    68→  );
+    69→  const b: number[] = new Array(nCon).fill(0);
+    70→  const obj: number[] = new Array(totalVars).fill(0);
+    71→  for (let i = 0; i < nVars; i++) obj[i] = cost[i];
+    72→
+    73→  const basis: number[] = new Array(nCon).fill(-1);
+    74→  let slackIdx = nVars;
+    75→  let surpIdx = nVars + nSlack;
+    76→  let artIdx = nVars + nSlack + nSurplus;
+    77→
+    78→  for (let i = 0; i < nCon; i++) {
+    79→    const c = allCons[i];
+    80→    for (let j = 0; j < nVars; j++) A[i][j] = c.coeff[j];
+    81→    b[i] = c.rhs;
+    82→    // Normalize negative rhs by flipping the row.
+    83→    if (b[i] < 0) {
+    84→      for (let j = 0; j < totalVars; j++) A[i][j] = -A[i][j];
+    85→      b[i] = -b[i];
+    86→      // Flip operator semantics for variable allocation.
+    87→      if (c.op === "<=") {
+    88→        // became >=
+    89→        A[i][surpIdx] = -1;
+    90→        A[i][artIdx] = 1;
+    91→        basis[i] = artIdx;
+    92→        obj[artIdx] = BIG_M;
+    93→        surpIdx++;
+    94→        artIdx++;
+    95→      } else if (c.op === ">=") {
+    96→        A[i][slackIdx] = 1;
+    97→        basis[i] = slackIdx;
+    98→        slackIdx++;
+    99→      } else {
+   100→        A[i][artIdx] = 1;
+   101→        basis[i] = artIdx;
+   102→        obj[artIdx] = BIG_M;
+   103→        artIdx++;
+   104→      }
+   105→      continue;
+   106→    }
+   107→    if (c.op === "<=") {
+   108→      A[i][slackIdx] = 1;
+   109→      basis[i] = slackIdx;
+   110→      slackIdx++;
+   111→    } else if (c.op === ">=") {
+   112→      A[i][surpIdx] = -1;
+   113→      A[i][artIdx] = 1;
+   114→      basis[i] = artIdx;
+   115→      obj[artIdx] = BIG_M;
+   116→      surpIdx++;
+   117→      artIdx++;
+   118→    } else {
+   119→      A[i][artIdx] = 1;
+   120→      basis[i] = artIdx;
+   121→      obj[artIdx] = BIG_M;
+   122→      artIdx++;
+   123→    }
+   124→  }
+   125→
+   126→  // Simplex iterations (minimization): reduced cost = c_j - z_j.
+   127→  // Entering variable: most negative reduced cost.
+   128→  for (let iter = 0; iter < MAX_ITER; iter++) {
+   129→    // Compute reduced costs.
+   130→    let enter = -1;
+   131→    let best = -EPS;
+   132→    for (let j = 0; j < totalVars; j++) {
+   133→      let zj = 0;
+   134→      for (let i = 0; i < nCon; i++) zj += obj[basis[i]] * A[i][j];
+   135→      const reduced = obj[j] - zj;
+   136→      if (reduced < best) {
+   137→        best = reduced;
+   138→        enter = j;
+   139→      }
+   140→    }
+   141→    if (enter === -1) break; // optimal
+   142→
+   143→    // Ratio test.
+   144→    let leave = -1;
+   145→    let minRatio = Infinity;
+   146→    for (let i = 0; i < nCon; i++) {
+   147→      if (A[i][enter] > EPS) {
+   148→        const ratio = b[i] / A[i][enter];
+   149→        if (ratio < minRatio - EPS) {
+   150→          minRatio = ratio;
+   151→          leave = i;
+   152→        }
+   153→      }
+   154→    }
+   155→    if (leave === -1) {
+   156→      // Unbounded — shouldn't happen for bounded feed LP.
+   157→      return { x: new Array(nVars).fill(0), obj: 0, feasible: false };
+   158→    }
+   159→
+   160→    // Pivot.
+   161→    const piv = A[leave][enter];
+   162→    for (let j = 0; j < totalVars; j++) A[leave][j] /= piv;
+   163→    b[leave] /= piv;
+   164→    for (let i = 0; i < nCon; i++) {
+   165→      if (i !== leave && Math.abs(A[i][enter]) > EPS) {
+   166→        const factor = A[i][enter];
+   167→        for (let j = 0; j < totalVars; j++) A[i][j] -= factor * A[leave][j];
+   168→        b[i] -= factor * b[leave];
+   169→      }
+   170→    }
+   171→    basis[leave] = enter;
+   172→  }
+   173→
+   174→  // Extract solution.
+   175→  const x = new Array(nVars).fill(0);
+   176→  for (let i = 0; i < nCon; i++) {
+   177→    if (basis[i] < nVars) x[basis[i]] = b[i];
+   178→  }
+   179→
+   180→  // Feasibility: all artificial variables must be zero.
+   181→  let feasible = true;
+   182→  for (let i = 0; i < nCon; i++) {
+   183→    if (basis[i] >= nVars + nSlack + nSurplus) {
+   184→      if (b[i] > 1e-5) {
+   185→        feasible = false;
+   186→        break;
+   187→      }
+   188→    }
+   189→  }
+   190→
+   191→  const objVal = cost.reduce((s, c, i) => s + c * x[i], 0);
+   192→  return { x, obj: objVal, feasible };
+   193→}
+   194→
+   195→/* ================================================================== */
+   196→/*  FEED FORMULATION ENGINE                                            */
+   197→/* ================================================================== */
+   198→
+   199→import {
+   200→  ANIMALS,
+   201→  INGREDIENTS,
+   202→  INGREDIENT_ORDER,
+   203→  type AnimalKey,
+   204→  type AnimalProfile,
+   205→  type FormulationMode,
+   206→  type FormulationResult,
+   207→  type IngredientKey,
+   208→} from "./feed-data";
+   209→import type { IngredientNutrition } from "./ingredient-db";
+   210→
+   211→interface FormulateParams {
+   212→  animalKey: AnimalKey;
+   213→  weight: number;
+   214→  production: number;
+   215→  prices: Record<string, number>;
+   216→  mode: FormulationMode;
+   217→  flockSize?: number; // for poultry; defaults to 1
+   218→  ingredients: IngredientNutrition[]; // editable DB — all nutrition values read from here
+   219→}
+   220→
+   221→/**
+   222→ * Smart Manual Balancing:
+   223→ * - User locks certain ingredients at specific percentages
+   224→ * - System re-balances ONLY the unlocked ingredients to meet targets
+   225→ * - Never adds ingredients that are at 0% (not in the ration)
+   226→ * - Only adjusts ingredients already in the ration
+   227→ * - If impossible, returns the best possible solution + explanation
+   228→ */
+   229→export interface FormulateWithLocksParams extends FormulateParams {
+   230→  /** Map of ingredient key → fixed percentage (user-locked) */
+   231→  lockedPercents: Record<string, number>;
+   232→  /** Which ingredient keys are in the current ration (non-zero) */
+   233→  activeKeys: string[];
+   234→}
+   235→
+   236→export function formulateRationWithLocks(params: FormulateWithLocksParams): FormulationResult {
+   237→  const animal: AnimalProfile = ANIMALS[params.animalKey];
+   238→  const perAnimalDmi = animal.dmi(params.weight, params.production);
+   239→  const flockSize = Math.max(1, Math.round(params.flockSize ?? 1));
+   240→  const dmi = +(perAnimalDmi * flockSize).toFixed(3);
+   241→
+   242→  // Build ingredient map from the editable DB
+   243→  const ingMap: Record<string, IngredientNutrition> = {};
+   244→  for (const ing of params.ingredients) ingMap[ing.key] = ing;
+   245→
+   246→  // Locked ingredients (user-fixed) — these stay exactly as set
+   247→  const locked = params.lockedPercents;
+   248→  const lockedKeys = Object.keys(locked).filter((k) => locked[k] > 0);
+   249→
+   250→  // Unlocked ingredients that are already in the ration (non-zero in activeKeys)
+   251→  // These are the ONLY ingredients we can adjust
+   252→  const adjustableKeys = params.activeKeys.filter(
+   253→    (k) => !lockedKeys.includes(k) && (locked[k] ?? 0) === 0
+   254→  );
+   255→
+   256→  // Calculate what the locked ingredients contribute
+   257→  let lockedSum = 0;
+   258→  let lockedCp = 0;
+   259→  let lockedTdn = 0;
+   260→  let lockedFiber = 0;
+   261→  let lockedCost = 0;
+   262→  for (const k of lockedKeys) {
+   263→    const pct = locked[k] / 100;
+   264→    const ing = ingMap[k];
+   265→    if (!ing) continue;
+   266→    lockedSum += locked[k];
+   267→    lockedCp += pct * ing.protein;
+   268→    lockedTdn += pct * ing.tdn;
+   269→    lockedFiber += pct * ing.fiber;
+   270→    lockedCost += pct * (params.prices[k] ?? ing.price);
+   271→  }
+   272→
+   273→  // Remaining percentage to fill with adjustable ingredients
+   274→  const remainingPct = 100 - lockedSum;
+   275→  if (remainingPct < 0) {
+   276→    // Locked ingredients exceed 100% — impossible
+   277→    return {
+   278→      dmi,
+   279→      perAnimalDmi,
+   280→      flockSize,
+   281→      components: [],
+   282→      totalCost: 0,
+   283→      costPerKg: 0,
+   284→      costPerMonth: 0,
+   285→      costPerAnimal: 0,
+   286→      costPerTon: 0,
+   287→      achieved: { cp: 0, tdn: 0, fiber: 0 },
+   288→      targets: { cpMin: animal.targets.cpMin, tdnMin: animal.targets.tdnMin, fiberMax: animal.targets.fiberMax },
+   289→      feasible: false,
+   290→      warnings: [`النسبة المثبتة (${lockedSum.toFixed(1)}%) تتجاوز 100%. لا يمكن إكمال التركيبة.`],
+   291→    };
+   292→  }
+   293→
+   294→  // Nutrition targets (after mode relaxation)
+   295→  const relax = params.mode === "economy" ? 2.5 : 0;
+   296→  const relaxTdn = params.mode === "economy" ? 5 : 0;
+   297→  const relaxForage = params.mode === "economy" ? 8 : 0;
+   298→  const cpMin = Math.max(0, animal.targets.cpMin - relax);
+   299→  const tdnMin = Math.max(0, animal.targets.tdnMin - relaxTdn);
+   300→  const fiberMax = animal.targets.fiberMax;
+   301→  const forageMin = Math.max(0, animal.forageMin - relaxForage);
+   302→
+   303→  // What the adjustable ingredients need to provide (per unit of their share)
+   304→  const remainingShare = remainingPct / 100;
+   305→
+   306→  // Nutrition needed from adjustable ingredients (in absolute % terms)
+   307→  const cpNeeded = cpMin - lockedCp;
+   308→  const tdnNeeded = tdnMin - lockedTdn;
+   309→  const fiberAllowed = fiberMax * (1) - lockedFiber; // total fiber must stay under fiberMax
+   310→
+   311→  // Build LP: minimize cost of adjustable ingredients
+   312→  // subject to: they sum to remainingPct, and meet nutrition targets
+   313→  const nVars = adjustableKeys.length;
+   314→
+   315→  if (nVars === 0) {
+   316→    // No adjustable ingredients — check if locked alone meets targets
+   317→    const achieved = {
+   318→      cp: lockedCp,
+   319→      tdn: lockedTdn,
+   320→      fiber: lockedFiber,
+   321→    };
+   322→    const warnings: string[] = [];
+   323→    if (achieved.cp < cpMin) warnings.push(`البروتين ${achieved.cp.toFixed(1)}% أقل من المطلوب ${cpMin}%. لا توجد خامات قابلة للتعديل.`);
+   324→    if (achieved.tdn < tdnMin) warnings.push(`الطاقة ${achieved.tdn.toFixed(1)}% أقل من المطلوب ${tdnMin}%. لا توجد خامات قابلة للتعديل.`);
+   325→    if (achieved.fiber > fiberMax) warnings.push(`الألياف ${achieved.fiber.toFixed(1)}% أعلى من الحد الأقصى ${fiberMax}%.`);
+   326→
+   327→    const components = lockedKeys.map((k) => {
+   328→      const ing = ingMap[k];
+   329→      const pct = locked[k];
+   330→      const kg = +((pct / 100) * dmi).toFixed(3);
+   331→      const cost = +(kg * (params.prices[k] ?? ing?.price ?? 0)).toFixed(2);
+   332→      return {
+   333→        ingredient: makeIngredientObj(k, ing),
+   334→        percent: pct,
+   335→        kg,
+   336→        cost,
+   337→      };
+   338→    });
+   339→
+   340→    const totalCost = +components.reduce((s, c) => s + c.cost, 0).toFixed(2);
+   341→    return {
+   342→      dmi, perAnimalDmi, flockSize, components,
+   343→      totalCost,
+   344→      costPerKg: dmi > 0 ? +(totalCost / dmi).toFixed(2) : 0,
+   345→      costPerMonth: +(totalCost * 30).toFixed(2),
+   346→      costPerAnimal: +(totalCost / flockSize).toFixed(2),
+   347→    costPerTon: +((dmi > 0 ? totalCost / dmi : 0) * 1000).toFixed(2),
+   348→      achieved,
+   349→      targets: { cpMin, tdnMin, fiberMax },
+   350→      feasible: warnings.length === 0,
+   351→      warnings: warnings.length > 0 ? warnings : ["لا توجد خامات قابلة للتعديل. التركيبة الحالية هي الأفضل الممكنة."],
+   352→    };
+   353→  }
+   354→
+   355→  // Cost vector for adjustable ingredients
+   356→  const cost = adjustableKeys.map((k) => params.prices[k] ?? ingMap[k]?.price ?? 0);
+   357→
+   358→  const constraints: Constraint[] = [];
+   359→
+   360→  // 1) Sum of adjustable = remainingPct/100
+   361→  constraints.push({
+   362→    coeff: new Array(nVars).fill(1),
+   363→    op: "=",
+   364→    rhs: remainingShare,
+   365→  });
+   366→
+   367→  // 2) CP from adjustable >= cpNeeded/100 (if positive)
+   368→  if (cpNeeded > 0) {
+   369→    constraints.push({
+   370→      coeff: adjustableKeys.map((k) => (ingMap[k]?.protein ?? 0) / 100),
+   371→      op: ">=",
+   372→      rhs: cpNeeded / 100,
+   373→    });
+   374→  }
+   375→
+   376→  // 3) TDN from adjustable >= tdnNeeded/100 (if positive)
+   377→  if (tdnNeeded > 0) {
+   378→    constraints.push({
+   379→      coeff: adjustableKeys.map((k) => (ingMap[k]?.tdn ?? 0) / 100),
+   380→      op: ">=",
+   381→      rhs: tdnNeeded / 100,
+   382→    });
+   383→  }
+   384→
+   385→  // 4) Fiber from adjustable <= fiberAllowed/100 (if constraint is binding)
+   386→  if (fiberAllowed > 0) {
+   387→    constraints.push({
+   388→      coeff: adjustableKeys.map((k) => (ingMap[k]?.fiber ?? 0) / 100),
+   389→      op: "<=",
+   390→      rhs: fiberAllowed / 100,
+   391→    });
+   392→  }
+   393→
+   394→  // 5) Forage constraint for ruminants (locked forage + adjustable forage >= forageMin)
+   395→  if (animal.species === "ruminant" && forageMin > 0) {
+   396→    const forageKeys = ["hay", "straw", "corn_silage"];
+   397→    let lockedForage = 0;
+   398→    for (const k of lockedKeys) {
+   399→      if (forageKeys.includes(k)) lockedForage += locked[k];
+   400→    }
+   401→    const forageNeeded = Math.max(0, forageMin - lockedForage);
+   402→    if (forageNeeded > 0) {
+   403→      const coeff = adjustableKeys.map((k) => (forageKeys.includes(k) ? 1 : 0));
+   404→      if (coeff.some((c) => c > 0)) {
+   405→        constraints.push({ coeff, op: ">=", rhs: forageNeeded / 100 });
+   406→      }
+   407→    }
+   408→  }
+   409→
+   410→  // 6) Upper bounds for adjustable ingredients (from animal bounds or ingredient maxUsage)
+   411→  const upperBounds: number[] = adjustableKeys.map((k) => {
+   412→    const b = animal.bounds[k];
+   413→    const ing = ingMap[k];
+   414→    return (b ? b.ub : (ing?.maxUsage ?? 100)) / 100;
+   415→  });
+   416→
+   417→  const result = solveLP(cost, constraints, upperBounds);
+   418→
+   419→  // Build final components
+   420→  const allComponents = [];
+   421→
+   422→  // Locked components
+   423→  for (const k of lockedKeys) {
+   424→    const ing = ingMap[k];
+   425→    const pct = locked[k];
+   426→    const kg = +((pct / 100) * dmi).toFixed(3);
+   427→    const c = +(kg * (params.prices[k] ?? ing?.price ?? 0)).toFixed(2);
+   428→    allComponents.push({ ingredient: makeIngredientObj(k, ing), percent: pct, kg, cost: c });
+   429→  }
+   430→
+   431→  // Adjustable components (from LP)
+   432→  if (result.feasible) {
+   433→    for (let i = 0; i < nVars; i++) {
+   434→      const k = adjustableKeys[i];
+   435→      const ing = ingMap[k];
+   436→      const pct = result.x[i] * 100;
+   437→      if (pct < 0.05) continue;
+   438→      const kg = +(result.x[i] * dmi).toFixed(3);
+   439→      const c = +(result.x[i] * dmi * (params.prices[k] ?? ing?.price ?? 0)).toFixed(2);
+   440→      allComponents.push({ ingredient: makeIngredientObj(k, ing), percent: pct, kg, cost: c });
+   441→    }
+   442→  } else {
+   443→    // Infeasible — produce best-effort: distribute remaining proportionally by current values
+   444→    // Try: just fill remaining with cheapest adjustable
+   445→    // Or: proportional fill based on upper bounds
+   446→    let totalUb = 0;
+   447→    for (let i = 0; i < nVars; i++) totalUb += upperBounds[i];
+   448→    if (totalUb > 0) {
+   449→      for (let i = 0; i < nVars; i++) {
+   450→        const k = adjustableKeys[i];
+   451→        const ing = ingMap[k];
+   452→        const pct = (upperBounds[i] / totalUb) * remainingPct;
+   453→        if (pct < 0.05) continue;
+   454→        const kg = +((pct / 100) * dmi).toFixed(3);
+   455→        const c = +(kg * (params.prices[k] ?? ing?.price ?? 0)).toFixed(2);
+   456→        allComponents.push({ ingredient: makeIngredientObj(k, ing), percent: pct, kg, cost: c });
+   457→      }
+   458→    }
+   459→  }
+   460→
+   461→  // Calculate achieved nutrition
+   462→  const achieved = {
+   463→    cp: allComponents.reduce((s, c) => s + (c.percent / 100) * (c.ingredient.protein ?? 0), 0),
+   464→    tdn: allComponents.reduce((s, c) => s + (c.percent / 100) * (c.ingredient.tdn ?? 0), 0),
+   465→    fiber: allComponents.reduce((s, c) => s + (c.percent / 100) * (c.ingredient.fiber ?? 0), 0),
+   466→  };
+   467→
+   468→  const totalCost = +allComponents.reduce((s, c) => s + c.cost, 0).toFixed(2);
+   469→
+   470→  // Build warnings
+   471→  const warnings: string[] = [];
+   472→  if (!result.feasible) {
+   473→    warnings.push("لا يمكن تحقيق القيم الغذائية المستهدفة بالكامل مع الخامات المثبتة والمتاحة.");
+   474→    if (achieved.cp < cpMin) {
+   475→      warnings.push(`البروتين المتحقق ${achieved.cp.toFixed(1)}% أقل من المطلوب ${cpMin}%. اقتراح: قلّل كمية الخامات منخفضة البروتين أو أضف مصدر بروتين.`);
+   476→    }
+   477→    if (achieved.tdn < tdnMin) {
+   478→      warnings.push(`الطاقة المتحققة ${achieved.tdn.toFixed(1)}% أقل من المطلوب ${tdnMin}%. اقتراح: زِد كمية الذرة أو مصادر الطاقة.`);
+   479→    }
+   480→    if (achieved.fiber > fiberMax) {
+   481→      warnings.push(`الألياف المتحققة ${achieved.fiber.toFixed(1)}% أعلى من الحد الأقصى ${fiberMax}%. اقتراح: قلّل الألياف الخشنة.`);
+   482→    }
+   483→    warnings.push("هذه أفضل تركيبة ممكنة بالقيود الحالية. يمكنك تعديل الخامات المثبتة لتوسيع نطاق الحلول.");
+   484→  } else {
+   485→    if (achieved.cp < cpMin - 0.3) warnings.push(`البروتين ${achieved.cp.toFixed(1)}% أقل من الهدف ${cpMin}%.`);
+   486→    if (achieved.tdn < tdnMin - 0.5) warnings.push(`الطاقة ${achieved.tdn.toFixed(1)}% أقل من الهدف ${tdnMin}%.`);
+   487→    if (achieved.fiber > fiberMax + 0.5) warnings.push(`الألياف ${achieved.fiber.toFixed(1)}% أعلى من المحدود ${fiberMax}%.`);
+   488→  }
+   489→
+   490→  // Check sum = 100
+   491→  const sumPct = allComponents.reduce((s, c) => s + c.percent, 0);
+   492→  if (Math.abs(sumPct - 100) > 0.5) {
+   493→    warnings.push(`مجموع النسب ${sumPct.toFixed(1)}% — قد لا تكون التركيبة متوازنة تماماً.`);
+   494→  }
+   495→
+   496→  return {
+   497→    dmi,
+   498→    perAnimalDmi,
+   499→    flockSize,
+   500→    components: allComponents.filter((c) => c.percent > 0.05),
+   501→    totalCost,
+   502→    costPerKg: dmi > 0 ? +(totalCost / dmi).toFixed(2) : 0,
+   503→    costPerMonth: +(totalCost * 30).toFixed(2),
+   504→    costPerAnimal: +(totalCost / flockSize).toFixed(2),
+   505→    costPerTon: +((dmi > 0 ? totalCost / dmi : 0) * 1000).toFixed(2),
+   506→    achieved,
+   507→    targets: { cpMin, tdnMin, fiberMax },
+   508→    feasible: result.feasible,
+   509→    warnings,
+   510→  };
+   511→}
+   512→
+   513→/** Helper: build an Ingredient-like object from the DB entry */
+   514→function makeIngredientObj(key: string, ing: IngredientNutrition | undefined) {
+   515→  return {
+   516→    key,
+   517→    name: ing?.name ?? key,
+   518→    nameEn: ing?.nameEn ?? key,
+   519→    short: ing?.name ?? key,
+   520→    shortEn: ing?.nameEn ?? key,
+   521→    category: ing?.category ?? ("additive" as const),
+   522→    categoryLabel: ing?.category ?? "additive",
+   523→    defaultPrice: ing?.price ?? 0,
+   524→    protein: ing?.protein ?? 0,
+   525→    tdn: ing?.tdn ?? 0,
+   526→    fiber: ing?.fiber ?? 0,
+   527→    color: ing?.category === "energy" ? "#f59e0b" : ing?.category === "protein" ? "#10b981" : ing?.category === "fiber" ? "#84cc16" : "#a855f7",
+   528→    emoji: ing?.emoji ?? "🧪",
+   529→    icon: undefined as never,
+   530→  };
+   531→}
+   532→
+   533→/**
+   534→ * Build & solve the feed-formulation LP for the given animal, weight,
+   535→ * production level, market prices, and objective mode.
+   536→ *
+   537→ * Objective: minimize cost per kg of ration (as-fed).
+   538→ * Constraints:
+   539→ *   - sum of fractions = 1
+   540→ *   - crude protein >= target (relaxed in economy mode)
+   541→ *   - TDN (energy) >= target (relaxed in economy mode)
+   542→ *   - crude fiber <= max
+   543→ *   - roughage (hay + straw) >= forageMin (ruminants)
+   544→ *   - per-ingredient lower & upper bounds
+   545→ *
+   546→ * For poultry, kg/cost values are scaled by flockSize so the result shows
+   547→ * the whole-flock totals.
+   548→ */
+   549→export function formulateRation(params: FormulateParams): FormulationResult {
+   550→  const animal: AnimalProfile = ANIMALS[params.animalKey];
+   551→  const perAnimalDmi = animal.dmi(params.weight, params.production);
+   552→  const flockSize = Math.max(1, Math.round(params.flockSize ?? 1));
+   553→  const dmi = +(perAnimalDmi * flockSize).toFixed(3);
+   554→
+   555→  // Build ingredient map from the editable DB — NO hardcoded values.
+   556→  const ingMap: Record<string, IngredientNutrition> = {};
+   557→  for (const ing of params.ingredients) ingMap[ing.key] = ing;
+   558→
+   559→  // Only include ingredients that are relevant for this animal
+   560→  // (have non-zero maxUsage in the animal's bounds OR default bounds)
+   561→  const activeKeys = params.ingredients
+   562→    .filter((ing) => {
+   563→      const bounds = animal.bounds[ing.key];
+   564→      // Include if: animal has explicit bounds, OR ingredient has default maxUsage > 0
+   565→      return (bounds && bounds.ub > 0) || (ing.maxUsage > 0 && !bounds);
+   566→    })
+   567→    .map((ing) => ing.key);
+   568→
+   569→  // Apply mode relaxation to targets and bounds.
+   570→  const relax = params.mode === "economy" ? 2.5 : 0;
+   571→  const relaxTdn = params.mode === "economy" ? 5 : 0;
+   572→  const relaxForage = params.mode === "economy" ? 8 : 0;
+   573→  const cpMin = Math.max(0, animal.targets.cpMin - relax);
+   574→  const tdnMin = Math.max(0, animal.targets.tdnMin - relaxTdn);
+   575→  const fiberMax = animal.targets.fiberMax;
+   576→  const forageMin = Math.max(0, animal.forageMin - relaxForage);
+   577→
+   578→  // Variables order = activeKeys.
+   579→  const nVars = activeKeys.length;
+   580→  const cost = activeKeys.map((k) => params.prices[k] ?? ingMap[k]?.price ?? 0);
+   581→
+   582→  const constraints: Constraint[] = [];
+   583→
+   584→  // 1) Sum = 1 (100%)
+   585→  constraints.push({ coeff: new Array(nVars).fill(1), op: "=", rhs: 1 });
+   586→
+   587→  // 2) Crude protein >= cpMin/100 (read from DB)
+   588→  constraints.push({
+   589→    coeff: activeKeys.map((k) => (ingMap[k]?.protein ?? 0) / 100),
+   590→    op: ">=",
+   591→    rhs: cpMin / 100,
+   592→  });
+   593→
+   594→  // 3) TDN >= tdnMin/100 (read from DB)
+   595→  constraints.push({
+   596→    coeff: activeKeys.map((k) => (ingMap[k]?.tdn ?? 0) / 100),
+   597→    op: ">=",
+   598→    rhs: tdnMin / 100,
+   599→  });
+   600→
+   601→  // 4) Crude fiber <= fiberMax/100 (read from DB)
+   602→  constraints.push({
+   603→    coeff: activeKeys.map((k) => (ingMap[k]?.fiber ?? 0) / 100),
+   604→    op: "<=",
+   605→    rhs: fiberMax / 100,
+   606→  });
+   607→
+   608→  // 5) Roughage (hay + straw + corn_silage) >= forageMin (ruminants only).
+   609→  if (animal.species === "ruminant" && forageMin > 0) {
+   610→    const forageKeys = ["hay", "straw", "corn_silage"];
+   611→    const coeff = activeKeys.map((k) => (forageKeys.includes(k) ? 1 : 0));
+   612→    if (coeff.some((c) => c > 0)) {
+   613→      constraints.push({ coeff, op: ">=", rhs: forageMin / 100 });
+   614→    }
+   615→  }
+   616→
+   617→  // 6) Per-ingredient lower & upper bounds (from DB maxUsage, or animal bounds).
+   618→  const upperBounds: number[] = new Array(nVars).fill(1);
+   619→  activeKeys.forEach((k, i) => {
+   620→    const ing = ingMap[k];
+   621→    const b = animal.bounds[k];
+   622→    // Use animal bounds if defined, otherwise use ingredient's default minUsage/maxUsage
+   623→    const lb = b ? b.lb : (ing?.minUsage ?? 0);
+   624→    const ub = b ? b.ub : (ing?.maxUsage ?? 100);
+   625→    if (lb > 0) {
+   626→      const coeff = new Array(nVars).fill(0);
+   627→      coeff[i] = 1;
+   628→      constraints.push({ coeff, op: ">=", rhs: lb / 100 });
+   629→    }
+   630→    upperBounds[i] = ub / 100;
+   631→  });
+   632→
+   633→  const result = solveLP(cost, constraints, upperBounds);
+   634→
+   635→  const warnings: string[] = [];
+   636→  if (!result.feasible) {
+   637→    return {
+   638→      dmi,
+   639→      perAnimalDmi,
+   640→      flockSize,
+   641→      components: [],
+   642→      totalCost: 0,
+   643→      costPerKg: 0,
+   644→      costPerMonth: 0,
+   645→      costPerAnimal: 0,
+   646→      costPerTon: 0,
+   647→      achieved: { cp: 0, tdn: 0, fiber: 0 },
+   648→      targets: { cpMin, tdnMin, fiberMax },
+   649→      feasible: false,
+   650→      warnings: [
+   651→        "لا يوجد حل ممكن بهذه القيود. جرّب توسيع الحدود المتاحة أو راجع الأسعار.",
+   652→      ],
+   653→    };
+   654→  }
+   655→
+   656→  // Build components — read nutrition from DB, NOT hardcoded.
+   657→  const components = activeKeys.map((k, i) => {
+   658→    const ing = ingMap[k];
+   659→    if (!ing) return null;
+   660→    const percent = result.x[i] * 100;
+   661→    const kg = +(result.x[i] * dmi).toFixed(3);
+   662→    const price = params.prices[k] ?? ing.price;
+   663→    const c = +(result.x[i] * dmi * price).toFixed(2);
+   664→    return {
+   665→      ingredient: {
+   666→        key: ing.key,
+   667→        name: ing.name,
+   668→        nameEn: ing.nameEn,
+   669→        short: ing.name,
+   670→        shortEn: ing.nameEn,
+   671→        category: ing.category,
+   672→        categoryLabel: ing.category,
+   673→        defaultPrice: ing.price,
+   674→        protein: ing.protein,
+   675→        tdn: ing.tdn,
+   676→        fiber: ing.fiber,
+   677→        color: ing.category === "energy" ? "#f59e0b" : ing.category === "protein" ? "#10b981" : ing.category === "fiber" ? "#84cc16" : "#a855f7",
+   678→        emoji: ing.emoji,
+   679→        icon: undefined as never,
+   680→      },
+   681→      percent,
+   682→      kg,
+   683→      cost: c,
+   684→    };
+   685→  }).filter((c): c is NonNullable<typeof c> => c !== null && c.percent > 0.05);
+   686→
+   687→  // Achieved nutrition — read from DB.
+   688→  const achieved = {
+   689→    cp: activeKeys.reduce((s, k, i) => s + result.x[i] * (ingMap[k]?.protein ?? 0), 0),
+   690→    tdn: activeKeys.reduce((s, k, i) => s + result.x[i] * (ingMap[k]?.tdn ?? 0), 0),
+   691→    fiber: activeKeys.reduce((s, k, i) => s + result.x[i] * (ingMap[k]?.fiber ?? 0), 0),
+   692→  };
+   693→
+   694→  const totalCost = +components.reduce((s, c) => s + c.cost, 0).toFixed(2);
+   695→  const costPerKg = +(totalCost / dmi).toFixed(2);
+   696→  const costPerMonth = +(totalCost * 30).toFixed(2);
+   697→  const costPerAnimal = +(totalCost / flockSize).toFixed(2);
+   698→
+   699→  // Warnings.
+   700→  if (achieved.cp < cpMin - 0.3) warnings.push("البروتين أقل قليلاً من الهدف — راجع حدود الصويا.");
+   701→  if (achieved.tdn < tdnMin - 0.5) warnings.push("الطاقة أقل من الهدف — اسمح بمزيد من الذرة.");
+   702→  if (achieved.fiber > fiberMax + 0.5) warnings.push("الألياف أعلى من الموصى — قلّل التبن/الدريس.");
+   703→
+   704→  return {
+   705→    dmi,
+   706→    perAnimalDmi,
+   707→    flockSize,
+   708→    components,
+   709→    totalCost,
+   710→    costPerKg,
+   711→    costPerMonth,
+   712→    costPerAnimal,
+   713→    costPerTon: +((dmi > 0 ? totalCost / dmi : 0) * 1000).toFixed(2),
+   714→    achieved,
+   715→    targets: { cpMin, tdnMin, fiberMax },
+   716→    feasible: true,
+   717→    warnings,
+   718→  };
+   719→}
+   720→
+   721→/* ================================================================== */
+   722→/*  MANUAL RATION (user-edited percentages)                            */
+   723→/* ================================================================== */
+   724→
+   725→import type { PriceMap } from "./storage";
+   726→
+   727→/**
+   728→ * Build a FormulationResult from user-supplied percentages (manual override
+   729→ * of the LP solution). Recomputes kg, cost, and achieved nutrition so the
+   730→ * UI can live-update as the farmer drags the percentages.
+   731→ */
+   732→export function computeManualResult(
+   733→  percents: Partial<Record<string, number>>,
+   734→  perAnimalDmi: number,
+   735→  prices: Record<string, number>,
+   736→  targets: { cpMin: number; tdnMin: number; fiberMax: number },
+   737→  flockSize: number = 1,
+   738→  ingredients: IngredientNutrition[] = []
+   739→): FormulationResult {
+   740→  const flock = Math.max(1, Math.round(flockSize));
+   741→  const dmi = +(perAnimalDmi * flock).toFixed(3);
+   742→
+   743→  // Build map from editable DB
+   744→  const ingMap: Record<string, IngredientNutrition> = {};
+   745→  for (const ing of ingredients) ingMap[ing.key] = ing;
+   746→
+   747→  const allKeys = Object.keys(percents).filter((k) => (percents[k] ?? 0) > 0.05);
+   748→
+   749→  const components = allKeys.map((k) => {
+   750→    const pct = percents[k] ?? 0;
+   751→    const ing = ingMap[k];
+   752→    const kg = +((pct / 100) * dmi).toFixed(3);
+   753→    const price = prices[k] ?? ing?.price ?? 0;
+   754→    const cost = +(kg * price).toFixed(2);
+   755→    return {
+   756→      ingredient: {
+   757→        key: k,
+   758→        name: ing?.name ?? k,
+   759→        nameEn: ing?.nameEn ?? k,
+   760→        short: ing?.name ?? k,
+   761→        shortEn: ing?.nameEn ?? k,
+   762→        category: ing?.category ?? "additive",
+   763→        categoryLabel: ing?.category ?? "additive",
+   764→        defaultPrice: ing?.price ?? 0,
+   765→        protein: ing?.protein ?? 0,
+   766→        tdn: ing?.tdn ?? 0,
+   767→        fiber: ing?.fiber ?? 0,
+   768→        color: "",
+   769→        icon: undefined as never,
+   770→      },
+   771→      percent: pct,
+   772→      kg,
+   773→      cost,
+   774→    };
+   775→  });
+   776→
+   777→  const achieved = {
+   778→    cp: allKeys.reduce((s, k) => s + ((percents[k] ?? 0) / 100) * (ingMap[k]?.protein ?? 0), 0),
+   779→    tdn: allKeys.reduce((s, k) => s + ((percents[k] ?? 0) / 100) * (ingMap[k]?.tdn ?? 0), 0),
+   780→    fiber: allKeys.reduce((s, k) => s + ((percents[k] ?? 0) / 100) * (ingMap[k]?.fiber ?? 0), 0),
+   781→  };
+   782→
+   783→  const totalCost = +components.reduce((s, c) => s + c.cost, 0).toFixed(2);
+   784→  const costPerKg = dmi > 0 ? +(totalCost / dmi).toFixed(2) : 0;
+   785→  const costPerMonth = +(totalCost * 30).toFixed(2);
+   786→  const costPerAnimal = +(totalCost / flock).toFixed(2);
+   787→
+   788→  const warnings: string[] = [];
+   789→  if (achieved.cp < targets.cpMin - 0.3)
+   790→    warnings.push("البروتين أقل من الهدف الموصى به.");
+   791→  if (achieved.tdn < targets.tdnMin - 0.5)
+   792→    warnings.push("الطاقة أقل من الهدف الموصى به.");
+   793→  if (achieved.fiber > targets.fiberMax + 0.5)
+   794→    warnings.push("الألياف أعلى من الموصى به.");
+   795→
+   796→  const sumPct = allKeys.reduce((s, k) => s + (percents[k] ?? 0), 0);
+   797→  if (Math.abs(sumPct - 100) > 0.1) {
+   798→    warnings.push(`مجموع النسب ${sumPct.toFixed(1)}% — يجب أن يساوي 100%.`);
+   799→  }
+   800→
+   801→  return {
+   802→    dmi,
+   803→    perAnimalDmi,
+   804→    flockSize: flock,
+   805→    components,
+   806→    totalCost,
+   807→    costPerKg,
+   808→    costPerMonth,
+   809→    costPerAnimal,
+   810→    costPerTon: +(costPerKg * 1000).toFixed(2),
+   811→    targets,
+   812→    feasible: true,
+   813→    warnings,
+   814→  };
+   815→}
+   816→

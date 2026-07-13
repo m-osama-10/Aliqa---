@@ -5,6 +5,7 @@ import {
   type FormulationMode,
   type FormulationResult,
   type IngredientKey,
+  normalizeFormulationResult,
 } from "./feed-data";
 import type { PriceMap } from "./storage";
 import type { Lang } from "./i18n";
@@ -127,7 +128,10 @@ interface ReportParams {
  * bilingual output (Arabic RTL or English LTR) via the `lang` param.
  */
 export function printRationReport(params: ReportParams) {
-  const { result, animalKey, weight, production, mode, savings } = params;
+  const { animalKey, weight, production, mode, savings } = params;
+  // Normalize at the boundary: guarantees achieved/targets/components/costs
+  // are all present even if a caller passes a stale saved-ration result.
+  const result = normalizeFormulationResult(params.result);
   const lang: Lang = params.lang ?? "ar";
   const tr = (key: string, vars?: Record<string, string | number>) => {
     let str = REPORT_DICT[lang][key] ?? REPORT_DICT.ar[key] ?? key;

@@ -21,7 +21,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { FormulationResult } from "@/lib/feed-data";
-import { ANIMALS } from "@/lib/feed-data";
+import { ANIMALS, normalizeFormulationResult } from "@/lib/feed-data";
 import { useLang, type Lang } from "@/lib/i18n";
 
 interface RationResultProps {
@@ -60,22 +60,11 @@ export function RationResult({
     });
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
 
-  // Guard: ensure result has all required fields
-  const safeResult = {
-    ...result,
-    achieved: result?.achieved ?? { cp: 0, tdn: 0, fiber: 0 },
-    targets: result?.targets ?? { cpMin: 0, tdnMin: 0, fiberMax: 0 },
-    components: result?.components ?? [],
-    dmi: result?.dmi ?? 0,
-    totalCost: result?.totalCost ?? 0,
-    costPerKg: result?.costPerKg ?? 0,
-    costPerMonth: result?.costPerMonth ?? 0,
-    costPerAnimal: result?.costPerAnimal ?? 0,
-    costPerTon: result?.costPerTon ?? 0,
-    flockSize: result?.flockSize ?? 1,
-    feasible: result?.feasible ?? false,
-    warnings: result?.warnings ?? [],
-  };
+  // Defense-in-depth: normalize via the shared helper so this component is
+  // protected even if a caller bypasses migrateRation (e.g. displayResult
+  // from the formulators is already normalized, but a saved-ration path or a
+  // future code change might not be). This mirrors the guard in ManualEditor.
+  const safeResult = normalizeFormulationResult(result);
 
   if (!safeResult.feasible) {
     return (
@@ -423,6 +412,12 @@ export function rationToText(
   flockUnit: string = "رأس",
   lang: Lang = "ar"
 ): string {
+  // Normalize at the boundary: guarantees achieved/targets/components/costs
+  // are present. Previously this function referenced `safeResult` which was
+  // only defined inside the RationResult component — a scoping bug that would
+  // throw "ReferenceError: safeResult is not defined" whenever the user
+  // shared a ration via WhatsApp/clipboard.
+  const safeResult = normalizeFormulationResult(result);
   const isBird = flockUnit === "طائر" || flockUnit === "bird";
   const tr = (key: string) => SHARE_DICT[lang][key] ?? SHARE_DICT.ar[key] ?? key;
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";

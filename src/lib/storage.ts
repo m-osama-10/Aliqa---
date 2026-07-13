@@ -9,6 +9,7 @@ import {
   type IngredientKey,
 } from "./feed-data";
 import type { FormulationResult } from "./feed-data";
+import { normalizeFormulationResult } from "./feed-data";
 import { DEFAULT_INGREDIENTS as DEFAULT_INGREDIENTS_FOR_PRICES } from "./ingredient-db";
 
 /* ================================================================== */
@@ -434,20 +435,27 @@ const RATIONS_KEY = "aleeqa.rations.v1";
 
 /**
  * Migrate/validate a saved ration so older saves don't break the UI when
- * the FormulationResult shape evolves. Patches missing fields with safe
- * defaults derived from existing data.
+ * the FormulationResult shape evolves.
+ *
+ * ROOT-CAUSE FIX: previously this only backfilled perAnimalDmi / flockSize /
+ * costPerAnimal, which left `achieved`, `targets`, `components`, `feasible`,
+ * `warnings`, and all cost fields UNDEFINED for rations saved before those
+ * fields existed. Any direct access (e.g. ComparePanel's `a.result.achieved.cp`)
+ * then crashed with "Cannot read properties of undefined (reading 'cp')".
+ *
+ * Now we run the WHOLE result through normalizeFormulationResult(), which is
+ * the single source of truth that guarantees a complete FormulationResult
+ * from any partial input. This is the data-source fix; component-level
+ * safeResult guards remain as defense-in-depth.
  */
 function migrateRation(r: Partial<SavedRation>): SavedRation | null {
   if (!r || !r.id || !r.result || !r.animalKey) return null;
-  const res = r.result as Partial<FormulationResult>;
-  // Backfill flock-related fields if missing (added in v1 → flock feature).
-  if (res.perAnimalDmi === undefined) res.perAnimalDmi = res.dmi ?? 0;
-  if (res.flockSize === undefined) res.flockSize = r.flockSize ?? 1;
-  if (res.costPerAnimal === undefined) {
-    res.costPerAnimal = res.flockSize > 0 ? (res.totalCost ?? 0) / res.flockSize : 0;
-  }
-  r.result = res as FormulationResult;
-  if (r.flockSize === undefined) r.flockSize = res.flockSize ?? 1;
+  // Normalize the ENTIRE result — guarantees achieved, targets, components,
+  // all cost fields, feasible, and warnings are always present.
+  r.result = normalizeFormulationResult(
+    r.result as Partial<FormulationResult>
+  );
+  if (r.flockSize === undefined) r.flockSize = r.result.flockSize ?? 1;
   if (r.production === undefined) r.production = 0;
   return r as SavedRation;
 }

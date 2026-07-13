@@ -39,6 +39,7 @@ import {
   INGREDIENT_ORDER,
   type AnimalKey,
   type IngredientKey,
+  normalizeFormulationResult,
 } from "@/lib/feed-data";
 import { useRations, type SavedRation } from "@/lib/storage";
 import { useLang, type Lang } from "@/lib/i18n";
@@ -387,7 +388,14 @@ interface ComparePanelProps {
 }
 
 function ComparePanel({ pair, t, lang, fmt, onClear }: ComparePanelProps) {
-  const [a, b] = pair;
+  const [aRaw, bRaw] = pair;
+  // Defense-in-depth: normalize both results so achieved/targets/components
+  // are guaranteed present even if a future schema change slips past
+  // migrateRation. migrateRation (storage.ts) already normalizes at load,
+  // so this is a belt-and-suspenders guard for the direct .achieved.cp
+  // accesses below.
+  const a = { ...aRaw, result: normalizeFormulationResult(aRaw.result) };
+  const b = { ...bRaw, result: normalizeFormulationResult(bRaw.result) };
   const animalA = ANIMALS[a.animalKey];
   const animalB = ANIMALS[b.animalKey];
   const cheaperIsA = a.result.totalCost <= b.result.totalCost;
@@ -577,8 +585,9 @@ function ComparePanel({ pair, t, lang, fmt, onClear }: ComparePanelProps) {
 
 function buildComponentMap(r: SavedRation): Record<string, number> {
   const map: Record<string, number> = {};
-  for (const c of r.result.components) {
-    map[c.ingredient.key] = c.percent;
+  const comps = r?.result?.components ?? [];
+  for (const c of comps) {
+    if (c?.ingredient?.key !== undefined) map[c.ingredient.key] = c.percent;
   }
   return map;
 }

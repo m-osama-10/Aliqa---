@@ -750,3 +750,67 @@ export interface FormulationResult {
   feasible: boolean;
   warnings: string[];
 }
+
+/* ================================================================== */
+/*  RESULT NORMALIZER — single source of truth                          */
+/*                                                                     */
+/*  Guarantees a COMPLETE FormulationResult from any partial input.     */
+/*  This is the ROOT-CAUSE fix: every result, whether freshly computed  */
+/*  by a formulator OR loaded from localStorage (old schema), passes    */
+/*  through this function so the UI never sees an incomplete result.    */
+/*                                                                     */
+/*  Defense-in-depth:                                                   */
+/*    1. Formulators call this on their return value (catches future    */
+/*       regressions if someone edits a formulator and forgets a field).*/
+/*    2. migrateRation calls this when loading saved rations (fixes the */
+/*       actual source of incomplete results: stale localStorage data). */
+/*    3. Components keep their safeResult guards as a final safety net. */
+/* ================================================================== */
+
+const EMPTY_ACHIEVED = { cp: 0, tdn: 0, fiber: 0 } as const;
+const EMPTY_TARGETS = { cpMin: 0, tdnMin: 0, fiberMax: 0 } as const;
+
+export function normalizeFormulationResult(
+  input: Partial<FormulationResult> | null | undefined
+): FormulationResult {
+  const achieved = input?.achieved ?? EMPTY_ACHIEVED;
+  const targets = input?.targets ?? EMPTY_TARGETS;
+  const components = Array.isArray(input?.components) ? input!.components : [];
+  const warnings = Array.isArray(input?.warnings) ? input!.warnings : [];
+  const flockSize = Math.max(1, Number(input?.flockSize ?? 1));
+  const dmi = Number(input?.dmi ?? 0);
+  const totalCost = Number(input?.totalCost ?? 0);
+  const costPerKg = Number(input?.costPerKg ?? (dmi > 0 ? totalCost / dmi : 0));
+  const costPerAnimal = Number(
+    input?.costPerAnimal ?? (flockSize > 0 ? totalCost / flockSize : 0)
+  );
+
+  return {
+    dmi,
+    perAnimalDmi: Number(input?.perAnimalDmi ?? dmi),
+    flockSize,
+    components: components.map((c) => ({
+      ingredient: c?.ingredient as Ingredient,
+      percent: Number(c?.percent ?? 0),
+      kg: Number(c?.kg ?? 0),
+      cost: Number(c?.cost ?? 0),
+    })),
+    totalCost,
+    costPerKg,
+    costPerMonth: Number(input?.costPerMonth ?? totalCost * 30),
+    costPerAnimal,
+    costPerTon: Number(input?.costPerTon ?? costPerKg * 1000),
+    achieved: {
+      cp: Number(achieved.cp ?? 0),
+      tdn: Number(achieved.tdn ?? 0),
+      fiber: Number(achieved.fiber ?? 0),
+    },
+    targets: {
+      cpMin: Number(targets.cpMin ?? 0),
+      tdnMin: Number(targets.tdnMin ?? 0),
+      fiberMax: Number(targets.fiberMax ?? 0),
+    },
+    feasible: Boolean(input?.feasible ?? false),
+    warnings,
+  };
+}

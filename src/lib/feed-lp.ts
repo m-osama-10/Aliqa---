@@ -205,6 +205,7 @@ import {
   type FormulationMode,
   type FormulationResult,
   type IngredientKey,
+  normalizeFormulationResult,
 } from "./feed-data";
 import type { IngredientNutrition } from "./ingredient-db";
 
@@ -274,7 +275,7 @@ export function formulateRationWithLocks(params: FormulateWithLocksParams): Form
   const remainingPct = 100 - lockedSum;
   if (remainingPct < 0) {
     // Locked ingredients exceed 100% — impossible
-    return {
+    return normalizeFormulationResult({
       dmi,
       perAnimalDmi,
       flockSize,
@@ -288,7 +289,7 @@ export function formulateRationWithLocks(params: FormulateWithLocksParams): Form
       targets: { cpMin: animal.targets.cpMin, tdnMin: animal.targets.tdnMin, fiberMax: animal.targets.fiberMax },
       feasible: false,
       warnings: [`النسبة المثبتة (${lockedSum.toFixed(1)}%) تتجاوز 100%. لا يمكن إكمال التركيبة.`],
-    };
+    });
   }
 
   // Nutrition targets (after mode relaxation)
@@ -338,7 +339,7 @@ export function formulateRationWithLocks(params: FormulateWithLocksParams): Form
     });
 
     const totalCost = +components.reduce((s, c) => s + c.cost, 0).toFixed(2);
-    return {
+    return normalizeFormulationResult({
       dmi, perAnimalDmi, flockSize, components,
       totalCost,
       costPerKg: dmi > 0 ? +(totalCost / dmi).toFixed(2) : 0,
@@ -349,7 +350,7 @@ export function formulateRationWithLocks(params: FormulateWithLocksParams): Form
       targets: { cpMin, tdnMin, fiberMax },
       feasible: warnings.length === 0,
       warnings: warnings.length > 0 ? warnings : ["لا توجد خامات قابلة للتعديل. التركيبة الحالية هي الأفضل الممكنة."],
-    };
+    });
   }
 
   // Cost vector for adjustable ingredients
@@ -493,7 +494,7 @@ export function formulateRationWithLocks(params: FormulateWithLocksParams): Form
     warnings.push(`مجموع النسب ${sumPct.toFixed(1)}% — قد لا تكون التركيبة متوازنة تماماً.`);
   }
 
-  return {
+  return normalizeFormulationResult({
     dmi,
     perAnimalDmi,
     flockSize,
@@ -507,7 +508,7 @@ export function formulateRationWithLocks(params: FormulateWithLocksParams): Form
     targets: { cpMin, tdnMin, fiberMax },
     feasible: result.feasible,
     warnings,
-  };
+  });
 }
 
 /** Helper: build an Ingredient-like object from the DB entry */
@@ -634,7 +635,7 @@ export function formulateRation(params: FormulateParams): FormulationResult {
 
   const warnings: string[] = [];
   if (!result.feasible) {
-    return {
+    return normalizeFormulationResult({
       dmi,
       perAnimalDmi,
       flockSize,
@@ -650,7 +651,7 @@ export function formulateRation(params: FormulateParams): FormulationResult {
       warnings: [
         "لا يوجد حل ممكن بهذه القيود. جرّب توسيع الحدود المتاحة أو راجع الأسعار.",
       ],
-    };
+    });
   }
 
   // Build components — read nutrition from DB, NOT hardcoded.
@@ -701,7 +702,7 @@ export function formulateRation(params: FormulateParams): FormulationResult {
   if (achieved.tdn < tdnMin - 0.5) warnings.push("الطاقة أقل من الهدف — اسمح بمزيد من الذرة.");
   if (achieved.fiber > fiberMax + 0.5) warnings.push("الألياف أعلى من الموصى — قلّل التبن/الدريس.");
 
-  return {
+  return normalizeFormulationResult({
     dmi,
     perAnimalDmi,
     flockSize,
@@ -715,7 +716,7 @@ export function formulateRation(params: FormulateParams): FormulationResult {
     targets: { cpMin, tdnMin, fiberMax },
     feasible: true,
     warnings,
-  };
+  });
 }
 
 /* ================================================================== */
@@ -798,7 +799,7 @@ export function computeManualResult(
     warnings.push(`مجموع النسب ${sumPct.toFixed(1)}% — يجب أن يساوي 100%.`);
   }
 
-  return {
+  return normalizeFormulationResult({
     dmi,
     perAnimalDmi,
     flockSize: flock,
@@ -811,5 +812,5 @@ export function computeManualResult(
     targets,
     feasible: true,
     warnings,
-  };
+  });
 }

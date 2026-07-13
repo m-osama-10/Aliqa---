@@ -34,6 +34,7 @@ import {
   type AnimalKey,
   type FormulationMode,
   type IngredientKey,
+  normalizeFormulationResult,
 } from "@/lib/feed-data";
 import { computeManualResult, formulateRation, formulateRationWithLocks } from "@/lib/feed-lp";
 import { usePrices, useRations, useIngredients, type PriceMap } from "@/lib/storage";
@@ -810,17 +811,11 @@ function ManualEditor({
   const fmt = (n: number | undefined | null, d = 2) =>
     (n ?? 0).toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
 
-  // Defensive: ensure result has all required fields
-  const safeResult = {
-    ...result,
-    achieved: result?.achieved ?? { cp: 0, tdn: 0, fiber: 0 },
-    targets: result?.targets ?? { cpMin: 0, tdnMin: 0, fiberMax: 0 },
-    components: result?.components ?? [],
-    dmi: result?.dmi ?? 0,
-    totalCost: result?.totalCost ?? 0,
-    feasible: result?.feasible ?? false,
-    warnings: result?.warnings ?? [],
-  };
+  // Defense-in-depth: normalize via the shared helper (single source of
+  // truth). The formulators already normalize at return time and migrateRation
+  // normalizes at load, so displayResult should always be complete — but this
+  // guarantees the ManualEditor never crashes on .achieved.cp etc.
+  const safeResult = normalizeFormulationResult(result);
 
   // Build ingredient map for quick lookup
   const ingMap: Record<string, import("@/lib/ingredient-db").IngredientNutrition> = {};

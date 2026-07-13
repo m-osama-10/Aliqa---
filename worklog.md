@@ -38,3 +38,43 @@ Stage Summary:
 - Mobile app: 73 files generated (React Native/Expo SDK 52) including all screens, admin screens, services, stores, navigation, ration optimizer (426-line LP solver), i18n, eas.json (APK build profiles)
 - README: comprehensive with setup + build instructions
 - All tables have RLS; no service role key in client code
+
+---
+Task ID: 10
+Agent: main (Z.ai Code)
+Task: Root-cause fix for incomplete FormulationResult lifecycle — trace where result is created/updated/passed, find why it sometimes arrives without `achieved`/`targets`, fix the data source (not just the safeResult crash guard).
+
+Work Log:
+- Traced the COMPLETE result lifecycle across 8 files:
+  * CREATION: 3 formulators (formulateRation, formulateRationWithLocks, computeManualResult) — all 6 return paths verified to include achieved/targets/components
+  * DERIVATION: displayResult useMemo in calculator-screen-mobile.tsx + calculator-screen.tsx — returns one of the 3 formulator outputs
+  * PASSING: <RationResult> + <ManualEditor> receive displayResult (protected by safeResult guard)
+  * STORAGE: migrateRation in storage.ts loads saved rations — ROOT CAUSE found here
+  * UNGUARDED ACCESS: ComparePanel in rations-screen.tsx accesses a.result.achieved.cp directly
+- ROOT CAUSE IDENTIFIED: migrateRation (storage.ts) only backfilled perAnimalDmi/flockSize/costPerAnimal but MISSED achieved/targets/components/feasible/warnings/cost fields. Old saved rations (pre-schema) loaded with result.achieved=undefined → ComparePanel's a.result.achieved.cp crashed with "Cannot read properties of undefined (reading 'cp')". NOT a race condition, NOT useMemo/useEffect, NOT Zustand, NOT Smart Balance — it was stale localStorage data.
+- BONUS BUG FOUND: rationToText() in ration-result.tsx referenced `safeResult` which was only scoped inside the RationResult component (not the standalone exported function) — would throw ReferenceError whenever sharing via WhatsApp/clipboard. Fixed by adding local normalizeFormulationResult call.
+
+- IMPLEMENTED FIX (3-layer defense-in-depth):
+  1. Added normalizeFormulationResult() helper in feed-data.ts (lines 754-816) — single source of truth that guarantees a complete FormulationResult from ANY partial input (null/undefined/missing fields all handled with safe defaults derived from existing data)
+  2. Fixed migrateRation in storage.ts to run the WHOLE result through normalizeFormulationResult() — fixes the actual data source for saved rations
+  3. Wrapped all 6 formulator return paths (feed-lp.ts) with normalizeFormulationResult() — catches future regressions if someone edits a formulator and forgets a field
+  4. Normalized at printRationReport() entry (ration-report.ts) — guards the direct result.achieved.cp accesses in the HTML template
+  5. Normalized in ComparePanel (rations-screen.tsx) + made buildComponentMap defensive — guards the direct a.result.achieved.cp accesses
+  6. Replaced all 3 inline safeResult guards (RationResult, ManualEditor mobile, ManualEditor web) with normalizeFormulationResult() calls — consistent single source of truth
+  7. Fixed rationToText() scoping bug — added local safeResult = normalizeFormulationResult(result)
+
+- VERIFICATION (agent-browser end-to-end):
+  * Landing page: HTTP 200, renders correctly, no console errors
+  * Calculator: all sections render (animal selector, data inputs, ingredient selection, mode, prices) — no errors
+  * Manual Mode: clicked "تعديل النسب يدوياً" button → ManualEditor rendered (135 interactive elements, "حفظ العليقة" button present) — mode buttons correctly disabled
+  * CRITICAL: NO TypeError, NO "cannot read 'cp'", NO page errors in agent-browser errors output
+  * Dev log: only "GET / 200" messages, zero error lines
+  * Console: only HMR/info messages
+
+Stage Summary:
+- Root cause was migrateRation not normalizing the full FormulationResult schema — old localStorage data loaded with undefined achieved/targets
+- Fixed at the SOURCE (migrateRation + all 3 formulators) AND kept safeResult as defense-in-depth (per user request)
+- Found + fixed a bonus ReferenceError bug in rationToText() (safeResult scoping)
+- normalizeFormulationResult() is now the single source of truth, used at every boundary: creation (formulators), loading (migrateRation), display (RationResult/ManualEditor), export (printRationReport/rationToText), comparison (ComparePanel)
+- All 8 modified files compile cleanly; only pre-existing lint error is SafeAppInner JSX-in-try-catch (page.tsx, unrelated)
+- Manual Mode verified working end-to-end via agent-browser — no crashes
