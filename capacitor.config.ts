@@ -8,6 +8,9 @@ const config: CapacitorConfig = {
     allowMixedContent: true,
     captureInput: true,
     webContentsDebuggingEnabled: false,
+    backgroundColor: '#2E7D4F',
+    initialFocus: true,
+    pullToRefresh: true,
   },
   server: {
     androidScheme: 'https',
