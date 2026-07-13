@@ -412,8 +412,11 @@ function HeroStat({ value, label }: { value: string; label: string }) {
 
 function HeroPhoneMockup({ onEnter }: { onEnter: () => void }) {
   const { t, lang } = useLang();
-  const ing = (k: keyof typeof INGREDIENTS) =>
-    lang === "ar" ? INGREDIENTS[k].short : INGREDIENTS[k].shortEn;
+  // Use a simple lookup for the 4 main ingredients shown in the mockup
+  const ingLabels: Record<string, string> = lang === "ar"
+    ? { corn: "ذرة", soybean: "صويا", bran: "ردة", hay: "دريس", straw: "تبن", premix: "إضافات" }
+    : { corn: "Corn", soybean: "Soybean", bran: "Bran", hay: "Hay", straw: "Straw", premix: "Additives" };
+  const ing = (k: string) => ingLabels[k] || k;
   const num = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const dairyCow = lang === "ar" ? ANIMALS.dairy_cow.name : ANIMALS.dairy_cow.nameEn;
 

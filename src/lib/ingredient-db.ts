@@ -4,7 +4,7 @@
 /*  Default values are standard Egyptian feed composition tables.      */
 /* ================================================================== */
 
-export type IngredientCategory = "energy" | "protein" | "fiber" | "additive";
+export type IngredientCategory = "energy" | "protein" | "fiber" | "mineral" | "vitamin" | "additive";
 
 export interface IngredientNutrition {
   key: string;
@@ -52,12 +52,12 @@ export const DEFAULT_INGREDIENTS: IngredientNutrition[] = [
   { key: "straw", name: "تبن قمح", nameEn: "Wheat Straw", category: "fiber", emoji: "🌾", protein: 3, tdn: 42, fiber: 40, fat: 1.5, calcium: 0.3, phosphorus: 0.1, dryMatter: 90, minUsage: 0, maxUsage: 25, price: 4 },
 
   // Additives / minerals
-  { key: "limestone", name: "كربونات الكالسيوم", nameEn: "Limestone (CaCO3)", category: "additive", emoji: "🪨", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 38, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 3, price: 2 },
-  { key: "bicarb", name: "بيكربونات الصوديوم", nameEn: "Sodium Bicarbonate", category: "additive", emoji: "🧂", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 0, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 1.5, price: 5 },
-  { key: "salt", name: "ملح الطعام", nameEn: "Salt (NaCl)", category: "additive", emoji: "🧂", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 0, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 1, price: 3 },
-  { key: "mineral_mix", name: "مخلوط أملاح معدنية", nameEn: "Mineral Mix", category: "additive", emoji: "🧪", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 20, phosphorus: 12, dryMatter: 100, minUsage: 0, maxUsage: 2, price: 20 },
-  { key: "vitamins", name: "فيتامينات", nameEn: "Vitamins", category: "additive", emoji: "💊", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 0, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 0.5, price: 45 },
-  { key: "toxin_binder", name: "مضاد سموم", nameEn: "Toxin Binder", category: "additive", emoji: "💊", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 0, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 0.5, price: 25 },
+  { key: "limestone", name: "كربونات الكالسيوم", nameEn: "Limestone (CaCO3)", category: "mineral", emoji: "🪨", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 38, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 3, price: 2 },
+  { key: "bicarb", name: "بيكربونات الصوديوم", nameEn: "Sodium Bicarbonate", category: "mineral", emoji: "🧂", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 0, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 1.5, price: 5 },
+  { key: "salt", name: "ملح الطعام", nameEn: "Salt (NaCl)", category: "mineral", emoji: "🧂", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 0, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 1, price: 3 },
+  { key: "mineral_mix", name: "مخلوط أملاح معدنية", nameEn: "Mineral Mix", category: "mineral", emoji: "🧪", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 20, phosphorus: 12, dryMatter: 100, minUsage: 0, maxUsage: 2, price: 20 },
+  { key: "vitamins", name: "فيتامينات", nameEn: "Vitamins", category: "vitamin", emoji: "💊", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 0, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 0.5, price: 45 },
+  { key: "toxin_binder", name: "مضاد سموم", nameEn: "Toxin Binder", category: "additive", emoji: "🛡️", protein: 0, tdn: 0, fiber: 0, fat: 0, calcium: 0, phosphorus: 0, dryMatter: 100, minUsage: 0, maxUsage: 0.5, price: 25 },
 ];
 
 export const INGREDIENT_KEYS = DEFAULT_INGREDIENTS.map((i) => i.key);
@@ -109,11 +109,13 @@ export function ingredientMap(ingredients: IngredientNutrition[]): Record<string
 
 /** Category labels (Arabic). */
 export const CATEGORY_LABELS: Record<IngredientCategory, string> = {
-  energy: "طاقة",
-  protein: "بروتين",
-  fiber: "ألياف خشنة",
-  additive: "إضافات",
+  energy: "مصادر الطاقة",
+  protein: "مصادر البروتين",
+  fiber: "مصادر الألياف",
+  mineral: "الأملاح المعدنية",
+  vitamin: "الفيتامينات",
+  additive: "إضافات أخرى",
 };
 
 /** Category order for display. */
-export const CATEGORY_ORDER: IngredientCategory[] = ["energy", "protein", "fiber", "additive"];
+export const CATEGORY_ORDER: IngredientCategory[] = ["energy", "protein", "fiber", "mineral", "vitamin", "additive"];

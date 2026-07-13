@@ -19,7 +19,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { INGREDIENTS, INGREDIENT_ORDER } from "@/lib/feed-data";
+import { DEFAULT_INGREDIENTS, CATEGORY_LABELS, CATEGORY_ORDER } from "@/lib/ingredient-db";
 import { useLang } from "@/lib/i18n";
 import { AdSection, AdSmartlink } from "@/components/ads";
 
@@ -223,13 +223,18 @@ export function AboutScreen() {
       <Card className="border-border/60 bg-secondary/30">
         <CardContent className="p-4">
           <p className="mb-2 text-sm font-extrabold text-foreground">{t("about.components_title")}</p>
-          <div className="flex flex-wrap gap-1.5">
-            {INGREDIENT_ORDER.map((k) => (
-              <Badge key={k} variant="secondary">
-                {INGREDIENT_EMOJI[k]} {lang === "ar" ? INGREDIENTS[k].name : INGREDIENTS[k].nameEn}
-              </Badge>
-            ))}
-          </div>
+          {CATEGORY_ORDER.map((cat) => (
+            <div key={cat} className="mb-3">
+              <p className="mb-1 text-xs font-bold text-primary">{CATEGORY_LABELS[cat]}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {DEFAULT_INGREDIENTS.filter((ing) => ing.category === cat).map((ing) => (
+                  <Badge key={ing.key} variant="secondary">
+                    {ing.emoji} {lang === "ar" ? ing.name : ing.nameEn}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ))}
           <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
             {t("about.targets_title")}:{" "}
             {lang === "ar"

@@ -468,11 +468,19 @@ function ComparePanel({ pair, t, lang, fmt, onClear }: ComparePanelProps) {
     },
   ];
 
-  // Component percentage rows (one per ingredient key).
-  const componentRows = INGREDIENT_ORDER.map((key: IngredientKey) => {
-    const ing = INGREDIENTS[key];
+  // Component percentage rows — use all keys present in either ration
+  const allKeys = Array.from(new Set([...Object.keys(compMapA), ...Object.keys(compMapB)]));
+  const componentRows = allKeys.map((key) => {
+    // Find ingredient name from the ration components
+    const compA = a.components.find((c) => c.ingredient.key === key);
+    const compB = b.components.find((c) => c.ingredient.key === key);
+    const label = compA
+      ? (lang === "ar" ? compA.ingredient.name : compA.ingredient.nameEn)
+      : compB
+      ? (lang === "ar" ? compB.ingredient.name : compB.ingredient.nameEn)
+      : key;
     return {
-      label: lang === "ar" ? ing.short : ing.shortEn,
+      label,
       a: `${fmt(compMapA[key] ?? 0, 1)}%`,
       b: `${fmt(compMapB[key] ?? 0, 1)}%`,
     };
