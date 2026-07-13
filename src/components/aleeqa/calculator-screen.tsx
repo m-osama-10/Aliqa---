@@ -704,7 +704,12 @@ function ManualEditor({
   const sumPct = availableKeys.reduce((s, k) => s + (percents[k] ?? 0), 0);
   const sumOk = Math.abs(sumPct - 100) <= 0.1;
 
-  // Memoize component rows so only changed rows re-render (#14 perf).
+  // Include original LP % for diff display
+  const lpPercents: Record<string, number> = {};
+  for (const c of result.components) {
+    lpPercents[c.ingredient.key] = c.percent;
+  }
+
   const rows = availableKeys.map((k) => {
     const ing = ingMap[k];
     const pct = percents[k] ?? 0;
@@ -712,7 +717,10 @@ function ManualEditor({
     const cost = +(kg * (prices[k] ?? ing?.price ?? 0)).toFixed(2);
     const ingName = lang === "ar" ? (ing?.name ?? k) : (ing?.nameEn ?? k);
     const emoji = ing?.emoji ?? "🧪";
-    return { k, ing, emoji, pct, kg, cost, ingName };
+    const originalPct = lpPercents[k] ?? 0;
+    const diff = +(pct - originalPct).toFixed(1);
+    const changed = Math.abs(diff) >= 0.1;
+    return { k, ing, emoji, pct, kg, cost, ingName, originalPct, diff, changed };
   });
 
   return (

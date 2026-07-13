@@ -9,6 +9,7 @@ import {
   type IngredientKey,
 } from "./feed-data";
 import type { FormulationResult } from "./feed-data";
+import { DEFAULT_INGREDIENTS as DEFAULT_INGREDIENTS_FOR_PRICES } from "./ingredient-db";
 
 /* ================================================================== */
 /*  Minimal external store (localStorage-backed) with subscribe API.  */
@@ -105,11 +106,9 @@ export interface PriceProfile {
 }
 
 export function defaultPrices(): PriceMap {
-  // Build from the editable ingredient DB, not from hardcoded values.
+  // Build from the editable ingredient DB
   const map: PriceMap = {};
-  // Import lazily to avoid circular dependency issues during SSR.
-  const { DEFAULT_INGREDIENTS } = require("./ingredient-db");
-  for (const ing of DEFAULT_INGREDIENTS) {
+  for (const ing of DEFAULT_INGREDIENTS_FOR_PRICES) {
     map[ing.key] = ing.price;
   }
   return map;
@@ -551,6 +550,7 @@ import {
   loadIngredients,
   saveIngredients,
   resetIngredients,
+  DEFAULT_INGREDIENTS,
   type IngredientNutrition,
 } from "./ingredient-db";
 
@@ -565,8 +565,6 @@ function getIngredientsSnapshot(): IngredientNutrition[] {
 }
 
 function getIngredientsServerSnapshot(): IngredientNutrition[] {
-  // Use require to avoid circular import at module load
-  const { DEFAULT_INGREDIENTS } = require("./ingredient-db");
   return DEFAULT_INGREDIENTS;
 }
 

@@ -788,7 +788,12 @@ function ManualEditor({
   const sumPct = availableKeys.reduce((s, k) => s + (percents[k] ?? 0), 0);
   const sumOk = Math.abs(sumPct - 100) <= 0.1;
 
-  // Memoize component rows so only changed rows re-render (#14 perf).
+  // Memoize component rows — include original LP % for diff display
+  const lpPercents: Record<string, number> = {};
+  for (const c of result.components) {
+    lpPercents[c.ingredient.key] = c.percent;
+  }
+
   const rows = availableKeys.map((k) => {
     const ing = ingMap[k];
     const pct = percents[k] ?? 0;
@@ -796,7 +801,11 @@ function ManualEditor({
     const cost = +(kg * (prices[k] ?? ing?.price ?? 0)).toFixed(2);
     const ingName = lang === "ar" ? (ing?.name ?? k) : (ing?.nameEn ?? k);
     const emoji = ing?.emoji ?? "🧪";
-    return { k, ing, emoji, pct, kg, cost, ingName };
+    // Original LP percentage (before user edits) for diff
+    const originalPct = lpPercents[k] ?? 0;
+    const diff = +(pct - originalPct).toFixed(1);
+    const changed = Math.abs(diff) >= 0.1;
+    return { k, ing, emoji, pct, kg, cost, ingName, originalPct, diff, changed };
   });
 
   return (
@@ -880,21 +889,41 @@ function ManualEditor({
 
         {/* Editable component rows */}
         <div className="space-y-2">
-          {rows.map(({ k, ing, emoji, pct, kg, cost, ingName }) => {
+          {rows.map(({ k, ing, emoji, pct, kg, cost, ingName, originalPct, diff, changed }) => {
             const isLocked = lockedKeys.has(k);
+            const isAutoAdjusted = autoBalance && changed && !isLocked;
             return (
-              <div key={k} className={cn("rounded-lg border bg-card p-2.5 transition-colors", isLocked ? "border-primary/50 bg-primary/5" : "border-border/60")}>
+              <div key={k} className={cn(
+                "rounded-lg border bg-card p-2.5 transition-all",
+                isLocked ? "border-primary/50 bg-primary/5" :
+                isAutoAdjusted ? "border-amber-400/50 bg-amber-50/50" :
+                "border-border/60"
+              )}>
                 <div className="flex items-center gap-2">
                   <span className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-base">{emoji}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-foreground">{ingName}{isLocked && <span className="ms-1 text-primary">🔒</span>}</p>
-                    <p className="text-[10px] text-muted-foreground">{fmt(kg, 2)} {t("common.kg")} · {fmt(cost, 1)} {t("common.egp")} · {t("manual.protein")} {fmt(ing?.protein ?? 0, 1)}%</p>
+                    <p className="text-xs font-bold text-foreground">
+                      {ingName}
+                      {isLocked && <span className="ms-1 text-primary">🔒</span>}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {fmt(kg, 2)} {t("common.kg")} · {fmt(cost, 1)} {t("common.egp")} · {t("manual.protein")} {fmt(ing?.protein ?? 0, 1)}%
+                      {isAutoAdjusted && (
+                        <span className={cn("ms-1 font-bold", diff > 0 ? "text-green-600" : "text-red-600")}>
+                          ({diff > 0 ? "+" : ""}{fmt(diff, 1)}%)
+                        </span>
+                      )}
+                    </p>
                   </div>
                   <div className="flex items-center gap-1">
                     <input type="number" inputMode="decimal" min={0} max={100} step={0.5} value={pct}
                       onChange={(e) => onChange(k, Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
                       disabled={isLocked && autoBalance}
-                      className={cn("w-14 rounded-md border bg-background px-1 py-1 text-center text-sm font-extrabold tabular-nums focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20", isLocked && autoBalance && "opacity-50 cursor-not-allowed")}
+                      className={cn(
+                        "w-14 rounded-md border bg-background px-1 py-1 text-center text-sm font-extrabold tabular-nums focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
+                        isLocked && autoBalance && "opacity-50 cursor-not-allowed",
+                        isAutoAdjusted && "border-amber-400"
+                      )}
                     />
                     <span className="text-[10px] text-muted-foreground">%</span>
                     <button onClick={() => onToggleLock(k)} disabled={!autoBalance}
