@@ -14,17 +14,36 @@ export interface SignInInput {
   password: string;
 }
 
-/** Map a Supabase auth user + profile row into our AuthUser shape. */
+/** Map a Supabase auth user + profile row into our AuthUser shape.
+ *  If the profile doesn't exist yet (trigger missed), auto-create it. */
 async function mapAuthUser(authUserId: string): Promise<AuthUser | null> {
   if (!IS_SUPABASE_CONFIGURED) return null;
   try {
-    const { data, error } = await supabase
+    // 1. Try to read the profile
+    let { data: p, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", authUserId)
       .maybeSingle();
-    if (error || !data) return null;
-    const p = data;
+
+    // 2. If profile doesn't exist, try to create it
+    if (!p && !error) {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData.user) {
+        const { data: newProfile, error: insertErr } = await supabase
+          .from("profiles")
+          .insert({
+            id: authUserId,
+            email: authData.user.email || "",
+            full_name: authData.user.user_metadata?.full_name || null,
+          })
+          .select("*")
+          .single();
+        if (!insertErr && newProfile) p = newProfile;
+      }
+    }
+
+    if (error || !p) return null;
     return {
       id: p.id,
       email: p.email,

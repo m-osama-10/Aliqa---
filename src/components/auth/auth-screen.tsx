@@ -71,17 +71,35 @@ export function AuthScreen({ onSuccess, onBack }: AuthScreenProps) {
       if (mode === "login") {
         setRememberMe(remember);
         await signIn({ email, password });
-        // Fetch the user profile immediately and update the store
-        // so the UI reflects the logged-in state without waiting for
-        // the async onAuthStateChange event.
-        const u = await getCurrentUser();
-        if (u) setUser(u);
-        else refreshUser(); // fallback: trigger onAuthChange re-read
-        toast({
-          title: isRtl ? "أهلاً بعودتك!" : "Welcome back!",
-          description: isRtl ? "تم تسجيل الدخول بنجاح" : "Signed in successfully",
-        });
-        onSuccess();
+        // Retry fetching the user profile — the DB trigger may need
+        // a moment to create the profile row after signIn succeeds.
+        let u = await getCurrentUser();
+        if (!u) {
+          await new Promise((r) => setTimeout(r, 500));
+          u = await getCurrentUser();
+        }
+        if (!u) {
+          await new Promise((r) => setTimeout(r, 1000));
+          u = await getCurrentUser();
+        }
+        if (u) {
+          setUser(u);
+          toast({
+            title: isRtl ? "أهلاً بعودتك!" : "Welcome back!",
+            description: isRtl ? "تم تسجيل الدخول بنجاح" : "Signed in successfully",
+          });
+          onSuccess();
+        } else {
+          // Profile still not found — force refresh via auth state change
+          refreshUser();
+          toast({
+            title: isRtl ? "تم تسجيل الدخول" : "Signed in",
+            description: isRtl
+              ? "جارٍ تحميل حسابك..."
+              : "Loading your account...",
+          });
+          onSuccess();
+        }
       } else if (mode === "register") {
         setRememberMe(remember);
         await signUp({ email, password, fullName });

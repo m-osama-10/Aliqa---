@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { onAuthChange, signOut as supabaseSignOut } from "@/lib/services/auth";
 import type { AuthUser } from "@/types/db";
@@ -18,15 +18,24 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isGuest, isLoading, setUser, setGuest, logout: storeLogout } = useAuthStore();
   const [refreshKey, setRefreshKey] = useState(0);
+  const isGuestRef = useRef(isGuest);
+
+  // Keep ref in sync to avoid stale closure in onAuthChange callback
+  useEffect(() => {
+    isGuestRef.current = isGuest;
+  }, [isGuest]);
 
   useEffect(() => {
     const unsub = onAuthChange((u) => {
-      if (u) setUser(u);
-      else if (!isGuest) useAuthStore.getState().setLoading(false);
+      if (u) {
+        setUser(u);
+      } else if (!isGuestRef.current) {
+        // Only clear loading state, don't clear user (avoid flicker)
+        useAuthStore.getState().setLoading(false);
+      }
     });
     return unsub;
-     
-  }, [refreshKey]);
+  }, [refreshKey, setUser]);
 
   const logout = async () => {
     await supabaseSignOut();
