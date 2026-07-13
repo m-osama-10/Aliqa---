@@ -40,6 +40,7 @@ import {
 } from "@/lib/feed-data";
 import { computeManualResult, formulateRation, formulateRationWithLocks } from "@/lib/feed-lp";
 import { usePrices, useRations, useIngredients, type PriceMap } from "@/lib/storage";
+import { CATEGORY_LABELS, CATEGORY_ORDER } from "@/lib/ingredient-db";
 import { printRationReport } from "@/lib/ration-report";
 import { useLang } from "@/lib/i18n";
 import { RationResult, rationToText } from "./ration-result";
@@ -60,7 +61,9 @@ export function CalculatorScreenMobile() {
   const [production, setProduction] = useState(ANIMALS.dairy_cow.productionDefault);
   const [flockSize, setFlockSize] = useState(ANIMALS.dairy_cow.defaultFlockSize);
   const [mode, setMode] = useState<FormulationMode>("balanced");
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1); // 1: animal, 2: data, 3: mode, 4: prices, 5: result
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1); // 1: animal, 2: data, 3: ingredients, 4: mode, 5: prices, 6: result
+  const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set());
+  const [ingredientSelectionMode, setIngredientSelectionMode] = useState<"auto" | "manual">("auto");
 
   // Manual percentage editing.
   const [manualMode, setManualMode] = useState(false);
@@ -77,7 +80,31 @@ export function CalculatorScreenMobile() {
     setFlockSize(ANIMALS[key].defaultFlockSize);
     setManualMode(false);
     setManualPercents({});
+    // Reset ingredient selection when animal changes
+    setSelectedIngredients(new Set());
+    setIngredientSelectionMode("auto");
   };
+
+  // Get ingredients available for this animal (have bounds or default maxUsage)
+  const availableIngredients = useMemo(() => {
+    return ingredients.filter((ing) => {
+      const b = animal.bounds[ing.key];
+      return (b && b.ub > 0) || (!b && ing.maxUsage > 0);
+    });
+  }, [ingredients, animal]);
+
+  // Auto-select ingredients (default: all available)
+  const effectiveSelectedKeys = useMemo(() => {
+    if (ingredientSelectionMode === "auto" || selectedIngredients.size === 0) {
+      return new Set(availableIngredients.map((ing) => ing.key));
+    }
+    return selectedIngredients;
+  }, [ingredientSelectionMode, selectedIngredients, availableIngredients]);
+
+  // Filtered ingredients for formulation (only selected ones)
+  const selectedIngredientObjects = useMemo(() => {
+    return ingredients.filter((ing) => effectiveSelectedKeys.has(ing.key));
+  }, [ingredients, effectiveSelectedKeys]);
 
   // Wrappers that reset manual mode when scenario inputs change.
   const handleWeightChange = (v: number) => {
@@ -102,14 +129,14 @@ export function CalculatorScreenMobile() {
   };
 
   const lpResult = useMemo(
-    () => formulateRation({ animalKey, weight, production, prices, mode, flockSize, ingredients }),
-    [animalKey, weight, production, prices, mode, flockSize, ingredients]
+    () => formulateRation({ animalKey, weight, production, prices, mode, flockSize, ingredients: selectedIngredientObjects }),
+    [animalKey, weight, production, prices, mode, flockSize, selectedIngredientObjects]
   );
 
   // Balanced baseline for savings + diff comparison.
   const balancedResult = useMemo(
-    () => formulateRation({ animalKey, weight, production, prices, mode: "balanced", flockSize, ingredients }),
-    [animalKey, weight, production, prices, flockSize, ingredients]
+    () => formulateRation({ animalKey, weight, production, prices, mode: "balanced", flockSize, ingredients: selectedIngredientObjects }),
+    [animalKey, weight, production, prices, flockSize, selectedIngredientObjects]
   );
 
   // Reset manual mode when scenario inputs change (not prices).
@@ -117,16 +144,11 @@ export function CalculatorScreenMobile() {
 
   // Enable manual mode: snapshot current LP result into editable percents.
   const enableManual = () => {
-    // Snapshot ALL available ingredients (not just the LP result)
-    // so the user can lock/unlock any of them
+    // Snapshot only SELECTED ingredients
     const snap: Record<string, number> = {};
-    for (const ing of ingredients) {
-      const b = animal.bounds[ing.key];
-      const available = (b && b.ub > 0) || (!b && ing.maxUsage > 0);
-      if (available) {
-        const c = lpResult.components.find((c) => c.ingredient.key === ing.key);
-        snap[ing.key] = c ? +c.percent.toFixed(1) : 0;
-      }
+    for (const ing of selectedIngredientObjects) {
+      const c = lpResult.components.find((c) => c.ingredient.key === ing.key);
+      snap[ing.key] = c ? +c.percent.toFixed(1) : 0;
     }
     setManualPercents(snap);
     setManualMode(true);
@@ -148,7 +170,7 @@ export function CalculatorScreenMobile() {
       // Active keys = all ingredients in manualPercents (including 0% ones)
       const activeKeys = Object.keys(manualPercents);
       return formulateRationWithLocks({
-        animalKey, weight, production, prices, mode, flockSize, ingredients,
+        animalKey, weight, production, prices, mode, flockSize, ingredients: selectedIngredientObjects,
         lockedPercents, activeKeys,
       });
     }
@@ -158,11 +180,11 @@ export function CalculatorScreenMobile() {
         lpResult.perAnimalDmi,
         prices,
         { cpMin: animal.targets.cpMin, tdnMin: animal.targets.tdnMin, fiberMax: animal.targets.fiberMax },
-        flockSize, ingredients
+        flockSize, selectedIngredientObjects
       );
     }
     return lpResult;
-  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, ingredients, autoBalance, lockedKeys, animalKey, weight, production, mode]);
+  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, selectedIngredientObjects, autoBalance, lockedKeys, animalKey, weight, production, mode]);
 
   // When auto-balance is ON, sync the manualPercents with the computed result
   // so sliders + inputs reflect the new values automatically
@@ -292,9 +314,10 @@ export function CalculatorScreenMobile() {
   const steps = [
     { n: 1, label: isRtl ? "الحيوان" : "Animal", icon: "🐄" },
     { n: 2, label: isRtl ? "البيانات" : "Data", icon: "⚖️" },
-    { n: 3, label: isRtl ? "الوضع" : "Mode", icon: "🎯" },
-    { n: 4, label: isRtl ? "الأسعار" : "Prices", icon: "💰" },
-    { n: 5, label: isRtl ? "النتيجة" : "Result", icon: "📊" },
+    { n: 3, label: isRtl ? "المواد" : "Items", icon: "🌾" },
+    { n: 4, label: isRtl ? "الوضع" : "Mode", icon: "🎯" },
+    { n: 5, label: isRtl ? "الأسعار" : "Prices", icon: "💰" },
+    { n: 6, label: isRtl ? "النتيجة" : "Result", icon: "📊" },
   ];
 
   return (
@@ -304,7 +327,7 @@ export function CalculatorScreenMobile() {
         {steps.map((s, i) => (
           <div key={s.n} className="flex flex-1 items-center gap-1">
             <button
-              onClick={() => setStep(s.n as 1 | 2 | 3 | 4 | 5)}
+              onClick={() => setStep(s.n as 1 | 2 | 3 | 4 | 5 | 6)}
               className={cn(
                 "flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 transition-all",
                 step === s.n
@@ -511,8 +534,137 @@ export function CalculatorScreenMobile() {
       </Card>
       )}
 
-      {/* STEP 3: Mode selector (balanced vs economy) */}
+      {/* STEP 3: Ingredient Selection */}
       {step === 3 && (
+      <Card className="border-primary/30">
+        <CardContent className="space-y-4 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🌾</span>
+            <p className="text-sm font-extrabold text-foreground">
+              {isRtl ? "اختيار المواد الخام" : "Select Ingredients"}
+            </p>
+          </div>
+
+          {/* Mode toggle: Auto vs Manual */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setIngredientSelectionMode("auto")}
+              className={cn(
+                "rounded-lg border-2 px-3 py-2.5 text-xs font-bold transition-all",
+                ingredientSelectionMode === "auto"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground"
+              )}
+            >
+              {isRtl ? "تلقائي" : "Automatic"}
+              <span className="mt-0.5 block text-[10px] font-normal opacity-80">
+                {isRtl ? "النظام يختار الأفضل" : "System picks best"}
+              </span>
+            </button>
+            <button
+              onClick={() => setIngredientSelectionMode("manual")}
+              className={cn(
+                "rounded-lg border-2 px-3 py-2.5 text-xs font-bold transition-all",
+                ingredientSelectionMode === "manual"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground"
+              )}
+            >
+              {isRtl ? "يدوي" : "Manual"}
+              <span className="mt-0.5 block text-[10px] font-normal opacity-80">
+                {isRtl ? "أختار بنفسي" : "I choose"}
+              </span>
+            </button>
+          </div>
+
+          {/* Manual selection */}
+          {ingredientSelectionMode === "manual" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">
+                {isRtl ? "اختر المواد المتوفرة لديك. سيتم استخدامها فقط في الحسابات." : "Select ingredients available to you. Only these will be used."}
+              </p>
+              {CATEGORY_ORDER.map((cat) => {
+                const catItems = availableIngredients.filter((ing) => ing.category === cat);
+                if (catItems.length === 0) return null;
+                return (
+                  <div key={cat}>
+                    <p className="mb-1.5 text-xs font-bold text-primary">{CATEGORY_LABELS[cat]}</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {catItems.map((ing) => {
+                        const isSelected = selectedIngredients.has(ing.key);
+                        return (
+                          <button
+                            key={ing.key}
+                            onClick={() => {
+                              setSelectedIngredients((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(ing.key)) next.delete(ing.key);
+                                else next.add(ing.key);
+                                return next;
+                              });
+                            }}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-lg border-2 px-2 py-1.5 text-[11px] font-bold transition-all",
+                              isSelected
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border text-muted-foreground hover:border-primary/30"
+                            )}
+                          >
+                            <span className="text-base">{ing.emoji}</span>
+                            <span className="truncate">{isRtl ? ing.name : ing.nameEn}</span>
+                            {isSelected && <span className="text-primary">✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {selectedIngredients.size === 0 && (
+                <p className="rounded-lg bg-amber-50 p-2 text-center text-[11px] text-amber-700">
+                  {isRtl ? "اختر مادة واحدة على الأقل" : "Select at least one ingredient"}
+                </p>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                {isRtl ? `المختار: ${selectedIngredients.size} مادة` : `Selected: ${selectedIngredients.size} items`}
+              </p>
+            </div>
+          )}
+
+          {/* Auto mode info */}
+          {ingredientSelectionMode === "auto" && (
+            <div className="rounded-lg bg-primary/5 p-3 text-center">
+              <p className="text-xs font-bold text-primary">
+                {isRtl ? "النظام سيستخدم جميع المواد المناسبة تلقائياً" : "System will use all suitable ingredients automatically"}
+              </p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {isRtl ? `${availableIngredients.length} مادة متاحة` : `${availableIngredients.length} ingredients available`}
+              </p>
+            </div>
+          )}
+
+          {/* Nav buttons */}
+          <div className="flex justify-between gap-2 pt-2">
+            <Button onClick={() => setStep(2)} variant="outline" size="lg" className="gap-2">
+              <PrevIcon className="h-4 w-4" />
+              {isRtl ? "السابق" : "Back"}
+            </Button>
+            <Button
+              onClick={() => setStep(4)}
+              size="lg"
+              className="gap-2"
+              disabled={ingredientSelectionMode === "manual" && selectedIngredients.size === 0}
+            >
+              {isRtl ? "التالي" : "Next"}
+              <NextIcon className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      )}
+
+      {/* STEP 4: Mode selector (balanced vs economy) */}
+      {step === 4 && (
       <Card className="border-accent/40">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center gap-2">
@@ -589,11 +741,11 @@ export function CalculatorScreenMobile() {
 
           {/* Nav buttons */}
           <div className="flex justify-between gap-2 pt-2">
-            <Button onClick={() => setStep(2)} variant="outline" size="lg" className="gap-2">
+            <Button onClick={() => setStep(3)} variant="outline" size="lg" className="gap-2">
               <PrevIcon className="h-4 w-4" />
               {isRtl ? "السابق" : "Back"}
             </Button>
-            <Button onClick={() => setStep(4)} size="lg" className="gap-2">
+            <Button onClick={() => setStep(5)} size="lg" className="gap-2">
               {isRtl ? "التالي" : "Next"}
               <NextIcon className="h-4 w-4" />
             </Button>
@@ -602,8 +754,8 @@ export function CalculatorScreenMobile() {
       </Card>
       )}
 
-      {/* STEP 4: Prices (inline editable) */}
-      {step === 4 && (
+      {/* STEP 5: Prices (inline editable) */}
+      {step === 5 && (
       <Card className="border-border/60 bg-secondary/30">
         <CardContent className="p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -621,10 +773,7 @@ export function CalculatorScreenMobile() {
             )}
           </div>
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-            {ingredients.filter((ing) => {
-              const b = animal.bounds[ing.key];
-              return (b && b.ub > 0) || (!b && ing.maxUsage > 0);
-            }).map((ing) => {
+            {selectedIngredientObjects.map((ing) => {
               const ingShort = lang === "ar" ? ing.name : ing.nameEn;
               return (
                 <div
@@ -658,11 +807,11 @@ export function CalculatorScreenMobile() {
 
           {/* Nav buttons for step 4 (prices → result) */}
           <div className="flex justify-between gap-2 pt-2">
-            <Button onClick={() => setStep(3)} variant="outline" size="lg" className="gap-2">
+            <Button onClick={() => setStep(4)} variant="outline" size="lg" className="gap-2">
               <PrevIcon className="h-4 w-4" />
               {isRtl ? "السابق" : "Back"}
             </Button>
-            <Button onClick={() => setStep(5)} size="lg" className="gap-2">
+            <Button onClick={() => setStep(6)} size="lg" className="gap-2">
               {isRtl ? "احسب العليقة" : "Calculate"}
               <Calculator className="h-4 w-4" />
             </Button>
@@ -671,13 +820,13 @@ export function CalculatorScreenMobile() {
       </Card>
       )}
 
-      {/* STEP 5: Result */}
-      {step === 5 && (
+      {/* STEP 6: Result */}
+      {step === 6 && (
       <>
       <div>
         {/* Back button */}
         <div className="mb-3 flex justify-start">
-          <Button onClick={() => setStep(4)} variant="outline" size="sm" className="gap-2">
+          <Button onClick={() => setStep(5)} variant="outline" size="sm" className="gap-2">
             <PrevIcon className="h-4 w-4" />
             {isRtl ? "تعديل البيانات" : "Edit data"}
           </Button>
@@ -714,11 +863,8 @@ export function CalculatorScreenMobile() {
             percents={manualPercents}
             onChange={(k, v) => setManualPercents((p) => ({ ...p, [k]: v }))}
             result={displayResult}
-            availableKeys={ingredients.filter((ing) => {
-              const b = animal.bounds[ing.key];
-              return (b && b.ub > 0) || (!b && ing.maxUsage > 0);
-            }).map((ing) => ing.key)}
-            ingredients={ingredients}
+            availableKeys={selectedIngredientObjects.map((ing) => ing.key)}
+            ingredients={selectedIngredientObjects}
             prices={prices}
             onSave={handleSave}
             onShare={handleShare}
