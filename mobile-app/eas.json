@@ -24,9 +24,11 @@
       }
     },
     "production": {
+      "distribution": "internal",
       "channel": "production",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       },
       "autoIncrement": true,
       "env": {

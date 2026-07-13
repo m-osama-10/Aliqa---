@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Alieqa",
-    "slug": "alieqa",
+    "slug": "aleqa",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,7 +18,10 @@
       "bundleIdentifier": "app.alieqa",
       "buildNumber": "1",
       "infoPlist": {
-        "CFBundleLocalizations": ["ar", "en"],
+        "CFBundleLocalizations": [
+          "ar",
+          "en"
+        ],
         "CFBundleDevelopmentRegion": "ar",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
@@ -76,12 +79,12 @@
     },
     "extra": {
       "eas": {
-        "projectId": "alieqa-mobile"
+        "projectId": "5987c9e9-1ec3-4c7d-a064-42b1c1a7b8ce"
       },
       "supabaseUrl": "https://lepdythxcdurjwncxnnt.supabase.co",
       "supabasePublishableKey": "sb_publishable_nWluULZyJ-hU3f42jd0mbg_8iNXWxkp"
     },
-    "owner": "alieqa",
+    "owner": "osadevs-team",
     "runtimeVersion": {
       "policy": "appVersion"
     },
