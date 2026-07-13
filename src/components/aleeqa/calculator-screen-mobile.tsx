@@ -684,7 +684,7 @@ export function CalculatorScreenMobile() {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => handleModeChange("balanced")}
-              disabled={mmanualMode}
+              disabled={manualMode}
               className={cn(
                 "rounded-lg border-2 px-3 py-2.5 text-xs font-bold transition-all disabled:opacity-40",
                 mode === "balanced" && !manualMode
@@ -697,7 +697,7 @@ export function CalculatorScreenMobile() {
             </button>
             <button
               onClick={() => handleModeChange("economy")}
-              disabled={mmanualMode}
+              disabled={manualMode}
               className={cn(
                 "rounded-lg border-2 px-3 py-2.5 text-xs font-bold transition-all disabled:opacity-40",
                 mode === "economy" && !manualMode
@@ -841,10 +841,10 @@ export function CalculatorScreenMobile() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Calculator className="h-5 w-5 text-primary" />
           <h3 className="text-base font-extrabold text-foreground">
-            {mmanualMode ? t("calc.result_manual") : t("calc.result_title")}
+            {manualMode ? t("calc.result_manual") : t("calc.result_title")}
           </h3>
           <Badge variant="secondary" className="gap-1 text-[10px]">
-            {mmanualMode ? (
+            {manualMode ? (
               <><SlidersHorizontal className="h-3 w-3" /> {t("calc.manual_badge")}</>
             ) : (
               <><Sparkles className="h-3 w-3" /> {t("calc.lp_badge")}</>
@@ -863,7 +863,7 @@ export function CalculatorScreenMobile() {
           </div>
         </div>
 
-        {mmanualMode ? (
+        {manualMode ? (
           <ManualEditor
             percents={manualPercents}
             onChange={(k, v) => setManualPercents((p) => ({ ...p, [k]: v }))}
