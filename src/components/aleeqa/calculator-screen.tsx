@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Calculator,
   PiggyBank,
@@ -168,6 +168,21 @@ export function CalculatorScreen() {
     }
     return lpResult;
   }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, ingredients, autoBalance, lockedKeys, animalKey, weight, production, mode]);
+
+  // Sync manualPercents with auto-balance result so sliders/inputs update
+  useEffect(() => {
+    if (manualMode && autoBalance && displayResult.feasible) {
+      const newPercents: Record<string, number> = {};
+      for (const c of displayResult.components) {
+        newPercents[c.ingredient.key] = +c.percent.toFixed(1);
+      }
+      let changed = false;
+      for (const k of Object.keys(newPercents)) {
+        if (Math.abs((manualPercents[k] ?? 0) - newPercents[k]) > 0.05) { changed = true; break; }
+      }
+      if (changed) setManualPercents((prev) => ({ ...prev, ...newPercents }));
+    }
+  }, [displayResult, manualMode, autoBalance]);
 
   const savings =
     mode === "economy" && !manualMode && lpResult.feasible && balancedResult.feasible

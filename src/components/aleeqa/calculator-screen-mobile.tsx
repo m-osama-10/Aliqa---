@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Calculator,
   PiggyBank,
@@ -60,7 +60,7 @@ export function CalculatorScreenMobile() {
   const [production, setProduction] = useState(ANIMALS.dairy_cow.productionDefault);
   const [flockSize, setFlockSize] = useState(ANIMALS.dairy_cow.defaultFlockSize);
   const [mode, setMode] = useState<FormulationMode>("balanced");
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: animal, 2: data, 3: prices, 4: result
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1); // 1: animal, 2: data, 3: mode, 4: prices, 5: result
 
   // Manual percentage editing.
   const [manualMode, setManualMode] = useState(false);
@@ -163,6 +163,28 @@ export function CalculatorScreenMobile() {
     }
     return lpResult;
   }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, ingredients, autoBalance, lockedKeys, animalKey, weight, production, mode]);
+
+  // When auto-balance is ON, sync the manualPercents with the computed result
+  // so sliders + inputs reflect the new values automatically
+  useEffect(() => {
+    if (manualMode && autoBalance && displayResult.feasible) {
+      const newPercents: Record<string, number> = {};
+      for (const c of displayResult.components) {
+        newPercents[c.ingredient.key] = +c.percent.toFixed(1);
+      }
+      // Only update if values actually changed (avoid infinite loop)
+      let changed = false;
+      for (const k of Object.keys(newPercents)) {
+        if (Math.abs((manualPercents[k] ?? 0) - newPercents[k]) > 0.05) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed) {
+        setManualPercents((prev) => ({ ...prev, ...newPercents }));
+      }
+    }
+  }, [displayResult, manualMode, autoBalance]);
 
   const savings =
     mode === "economy" && !manualMode && lpResult.feasible && balancedResult.feasible
@@ -270,8 +292,9 @@ export function CalculatorScreenMobile() {
   const steps = [
     { n: 1, label: isRtl ? "الحيوان" : "Animal", icon: "🐄" },
     { n: 2, label: isRtl ? "البيانات" : "Data", icon: "⚖️" },
-    { n: 3, label: isRtl ? "الأسعار" : "Prices", icon: "💰" },
-    { n: 4, label: isRtl ? "النتيجة" : "Result", icon: "📊" },
+    { n: 3, label: isRtl ? "الوضع" : "Mode", icon: "🎯" },
+    { n: 4, label: isRtl ? "الأسعار" : "Prices", icon: "💰" },
+    { n: 5, label: isRtl ? "النتيجة" : "Result", icon: "📊" },
   ];
 
   return (
@@ -281,7 +304,7 @@ export function CalculatorScreenMobile() {
         {steps.map((s, i) => (
           <div key={s.n} className="flex flex-1 items-center gap-1">
             <button
-              onClick={() => setStep(s.n as 1 | 2 | 3 | 4)}
+              onClick={() => setStep(s.n as 1 | 2 | 3 | 4 | 5)}
               className={cn(
                 "flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 transition-all",
                 step === s.n
@@ -488,9 +511,8 @@ export function CalculatorScreenMobile() {
       </Card>
       )}
 
-      {/* STEP 3: Cost optimizer (mode + prices) */}
+      {/* STEP 3: Mode selector (balanced vs economy) */}
       {step === 3 && (
-      <>
       <Card className="border-accent/40">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center gap-2">
@@ -564,10 +586,24 @@ export function CalculatorScreenMobile() {
               </div>
             </div>
           )}
+
+          {/* Nav buttons */}
+          <div className="flex justify-between gap-2 pt-2">
+            <Button onClick={() => setStep(2)} variant="outline" size="lg" className="gap-2">
+              <PrevIcon className="h-4 w-4" />
+              {isRtl ? "السابق" : "Back"}
+            </Button>
+            <Button onClick={() => setStep(4)} size="lg" className="gap-2">
+              {isRtl ? "التالي" : "Next"}
+              <NextIcon className="h-4 w-4" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* Prices snapshot — inline editable (also in step 3) */}
+      {/* STEP 4: Prices (inline editable) */}
+      {step === 4 && (
       <Card className="border-border/60 bg-secondary/30">
         <CardContent className="p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -620,29 +656,28 @@ export function CalculatorScreenMobile() {
             {t("calc.s4.hint")}
           </p>
 
-          {/* Nav buttons for step 3 (after prices) */}
+          {/* Nav buttons for step 4 (prices → result) */}
           <div className="flex justify-between gap-2 pt-2">
-            <Button onClick={() => setStep(2)} variant="outline" size="lg" className="gap-2">
+            <Button onClick={() => setStep(3)} variant="outline" size="lg" className="gap-2">
               <PrevIcon className="h-4 w-4" />
               {isRtl ? "السابق" : "Back"}
             </Button>
-            <Button onClick={() => setStep(4)} size="lg" className="gap-2">
+            <Button onClick={() => setStep(5)} size="lg" className="gap-2">
               {isRtl ? "احسب العليقة" : "Calculate"}
               <Calculator className="h-4 w-4" />
             </Button>
           </div>
         </CardContent>
       </Card>
-      </>
       )}
 
-      {/* STEP 4: Result */}
-      {step === 4 && (
+      {/* STEP 5: Result */}
+      {step === 5 && (
       <>
       <div>
         {/* Back button */}
         <div className="mb-3 flex justify-start">
-          <Button onClick={() => setStep(3)} variant="outline" size="sm" className="gap-2">
+          <Button onClick={() => setStep(4)} variant="outline" size="sm" className="gap-2">
             <PrevIcon className="h-4 w-4" />
             {isRtl ? "تعديل البيانات" : "Edit data"}
           </Button>
