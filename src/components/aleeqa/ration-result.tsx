@@ -113,7 +113,7 @@ export function RationResult({
             {isBird ? t("result.birds_in_flock") : t("result.heads_in_flock")}
           </span>
           <span className="text-lg font-black tabular-nums text-foreground">
-            {result.flockSize.toLocaleString(numLocale)}{" "}
+            {(result.flockSize ?? 0).toLocaleString(numLocale)}{" "}
             <span className="text-xs text-muted-foreground">{flockUnit}</span>
           </span>
         </div>
@@ -419,7 +419,7 @@ export function rationToText(
   lines.push(`⚖️ ${tr("share.weight")}: ${fmt(weight)} ${tr("common.kg")}`);
   if (result.flockSize > 1) {
     lines.push(
-      `${isBird ? "🐔" : "🐂"} ${isBird ? tr("share.birds") : tr("share.heads")}: ${result.flockSize.toLocaleString(
+      `${isBird ? "🐔" : "🐂"} ${isBird ? tr("share.birds") : tr("share.heads")}: ${(result.flockSize ?? 0).toLocaleString(
         numLocale
       )} ${flockUnit}`
     );

@@ -268,7 +268,7 @@ export function RationsScreen() {
                         {r.flockSize > 1 && (
                           <>
                             <span>·</span>
-                            <span>{r.flockSize.toLocaleString(numLocale)} {flockUnit}</span>
+                            <span>{(r.flockSize ?? 0).toLocaleString(numLocale)} {flockUnit}</span>
                           </>
                         )}
                         <span>·</span>
@@ -419,8 +419,8 @@ function ComparePanel({ pair, t, lang, fmt, onClear }: ComparePanelProps) {
         animalA?.species === "poultry" && animalB?.species === "poultry"
           ? t("share.birds")
           : t("share.heads"),
-      a: a.flockSize.toLocaleString(numLocale),
-      b: b.flockSize.toLocaleString(numLocale),
+      a: (a.flockSize ?? 0).toLocaleString(numLocale),
+      b: (b.flockSize ?? 0).toLocaleString(numLocale),
     },
     {
       label: t("share.type"),

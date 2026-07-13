@@ -198,7 +198,7 @@ export function printRationReport(params: ReportParams) {
     ? ` · ${productionLabel}: ${fmt(production, 0)} ${productionUnit}`
     : "";
   const flockMeta = isFlock
-    ? ` · ${isBird ? tr("report.birds_count") : tr("report.heads_count")}: ${flockSize.toLocaleString(
+    ? ` · ${isBird ? tr("report.birds_count") : tr("report.heads_count")}: ${(flockSize ?? 0).toLocaleString(
         numLocale
       )} ${flockUnit}`
     : "";
@@ -411,7 +411,7 @@ export function printRationReport(params: ReportParams) {
     <div class="flock-box">
       <div class="flock-item">
         <span class="flock-label">${isBird ? "🐔" : "🐂"} ${isBird ? tr("report.birds_count") : tr("report.heads_count")}</span>
-        <span class="flock-value">${flockSize.toLocaleString(numLocale)} ${flockUnit}</span>
+        <span class="flock-value">${(flockSize ?? 0).toLocaleString(numLocale)} ${flockUnit}</span>
       </div>
       <div class="flock-item">
         <span class="flock-label">💵 ${tr("report.daily_cost")}</span>

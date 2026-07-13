@@ -229,7 +229,7 @@ export function CalculatorScreenMobile() {
     const animalNameLabel = lang === "ar" ? animal.name : animal.nameEn;
     const flockLabel =
       animal.hasFlockInput && flockSize > 1
-        ? ` — ${flockSize.toLocaleString(numLocale)} ${flockUnitLabel}`
+        ? ` — ${(flockSize ?? 0).toLocaleString(numLocale)} ${flockUnitLabel}`
         : "";
     const saved = saveRation({
       name: `${animalNameLabel} — ${weight} ${weightUnitLabel}${flockLabel}${
