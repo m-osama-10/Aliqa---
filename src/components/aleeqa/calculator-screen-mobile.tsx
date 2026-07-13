@@ -39,7 +39,7 @@ import {
   type IngredientKey,
 } from "@/lib/feed-data";
 import { computeManualResult, formulateRation } from "@/lib/feed-lp";
-import { usePrices, useRations, type PriceMap } from "@/lib/storage";
+import { usePrices, useRations, useIngredients, type PriceMap } from "@/lib/storage";
 import { printRationReport } from "@/lib/ration-report";
 import { useLang } from "@/lib/i18n";
 import { RationResult, rationToText } from "./ration-result";
@@ -49,6 +49,7 @@ export function CalculatorScreenMobile() {
   const { t, lang } = useLang();
   const { prices, updatePrice, updatedAt, activeProfile } = usePrices();
   const { rations, saveRation } = useRations();
+  const { ingredients } = useIngredients();
 
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
   const fmt = (n: number, d = 2) =>
@@ -99,14 +100,14 @@ export function CalculatorScreenMobile() {
   };
 
   const lpResult = useMemo(
-    () => formulateRation({ animalKey, weight, production, prices, mode, flockSize }),
-    [animalKey, weight, production, prices, mode, flockSize]
+    () => formulateRation({ animalKey, weight, production, prices, mode, flockSize, ingredients }),
+    [animalKey, weight, production, prices, mode, flockSize, ingredients]
   );
 
   // Balanced baseline for savings + diff comparison.
   const balancedResult = useMemo(
-    () => formulateRation({ animalKey, weight, production, prices, mode: "balanced", flockSize }),
-    [animalKey, weight, production, prices, flockSize]
+    () => formulateRation({ animalKey, weight, production, prices, mode: "balanced", flockSize, ingredients }),
+    [animalKey, weight, production, prices, flockSize, ingredients]
   );
 
   // Reset manual mode when scenario inputs change (not prices).
@@ -140,11 +141,12 @@ export function CalculatorScreenMobile() {
           tdnMin: animal.targets.tdnMin,
           fiberMax: animal.targets.fiberMax,
         },
-        flockSize
+        flockSize,
+        ingredients
       );
     }
     return lpResult;
-  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize]);
+  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, ingredients]);
 
   const savings =
     mode === "economy" && !manualMode && lpResult.feasible && balancedResult.feasible

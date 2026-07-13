@@ -206,14 +206,16 @@ import {
   type FormulationResult,
   type IngredientKey,
 } from "./feed-data";
+import type { IngredientNutrition } from "./ingredient-db";
 
 interface FormulateParams {
   animalKey: AnimalKey;
   weight: number;
   production: number;
-  prices: Record<IngredientKey, number>;
+  prices: Record<string, number>;
   mode: FormulationMode;
   flockSize?: number; // for poultry; defaults to 1
+  ingredients: IngredientNutrition[]; // editable DB — all nutrition values read from here
 }
 
 /**
@@ -238,10 +240,21 @@ export function formulateRation(params: FormulateParams): FormulationResult {
   const flockSize = Math.max(1, Math.round(params.flockSize ?? 1));
   const dmi = +(perAnimalDmi * flockSize).toFixed(3);
 
+  // Build ingredient map from the editable DB — NO hardcoded values.
+  const ingMap: Record<string, IngredientNutrition> = {};
+  for (const ing of params.ingredients) ingMap[ing.key] = ing;
+
+  // Only include ingredients that are relevant for this animal
+  // (have non-zero maxUsage in the animal's bounds OR default bounds)
+  const activeKeys = params.ingredients
+    .filter((ing) => {
+      const bounds = animal.bounds[ing.key];
+      // Include if: animal has explicit bounds, OR ingredient has default maxUsage > 0
+      return (bounds && bounds.ub > 0) || (ing.maxUsage > 0 && !bounds);
+    })
+    .map((ing) => ing.key);
+
   // Apply mode relaxation to targets and bounds.
-  // Economy mode relaxes protein/energy floors AND the forage minimum so the
-  // optimizer can actually swap expensive ingredients for cheaper ones — this
-  // makes the cost saving and the quantity changes clearly visible.
   const relax = params.mode === "economy" ? 2.5 : 0;
   const relaxTdn = params.mode === "economy" ? 5 : 0;
   const relaxForage = params.mode === "economy" ? 8 : 0;
@@ -250,54 +263,59 @@ export function formulateRation(params: FormulateParams): FormulationResult {
   const fiberMax = animal.targets.fiberMax;
   const forageMin = Math.max(0, animal.forageMin - relaxForage);
 
-  // Variables order = INGREDIENT_ORDER.
-  const nVars = INGREDIENT_ORDER.length;
-  const cost = INGREDIENT_ORDER.map((k) => params.prices[k] ?? INGREDIENTS[k].defaultPrice);
+  // Variables order = activeKeys.
+  const nVars = activeKeys.length;
+  const cost = activeKeys.map((k) => params.prices[k] ?? ingMap[k]?.price ?? 0);
 
   const constraints: Constraint[] = [];
 
   // 1) Sum = 1 (100%)
   constraints.push({ coeff: new Array(nVars).fill(1), op: "=", rhs: 1 });
 
-  // 2) Crude protein >= cpMin/100
+  // 2) Crude protein >= cpMin/100 (read from DB)
   constraints.push({
-    coeff: INGREDIENT_ORDER.map((k) => INGREDIENTS[k].protein / 100),
+    coeff: activeKeys.map((k) => (ingMap[k]?.protein ?? 0) / 100),
     op: ">=",
     rhs: cpMin / 100,
   });
 
-  // 3) TDN >= tdnMin/100
+  // 3) TDN >= tdnMin/100 (read from DB)
   constraints.push({
-    coeff: INGREDIENT_ORDER.map((k) => INGREDIENTS[k].tdn / 100),
+    coeff: activeKeys.map((k) => (ingMap[k]?.tdn ?? 0) / 100),
     op: ">=",
     rhs: tdnMin / 100,
   });
 
-  // 4) Crude fiber <= fiberMax/100
+  // 4) Crude fiber <= fiberMax/100 (read from DB)
   constraints.push({
-    coeff: INGREDIENT_ORDER.map((k) => INGREDIENTS[k].fiber / 100),
+    coeff: activeKeys.map((k) => (ingMap[k]?.fiber ?? 0) / 100),
     op: "<=",
     rhs: fiberMax / 100,
   });
 
-  // 5) Roughage (hay + straw) >= forageMin (ruminants only).
+  // 5) Roughage (hay + straw + corn_silage) >= forageMin (ruminants only).
   if (animal.species === "ruminant" && forageMin > 0) {
-    const coeff = INGREDIENT_ORDER.map((k) =>
-      k === "hay" || k === "straw" ? 1 : 0
-    );
-    constraints.push({ coeff, op: ">=", rhs: forageMin / 100 });
+    const forageKeys = ["hay", "straw", "corn_silage"];
+    const coeff = activeKeys.map((k) => (forageKeys.includes(k) ? 1 : 0));
+    if (coeff.some((c) => c > 0)) {
+      constraints.push({ coeff, op: ">=", rhs: forageMin / 100 });
+    }
   }
 
-  // 6) Per-ingredient lower bounds.
+  // 6) Per-ingredient lower & upper bounds (from DB maxUsage, or animal bounds).
   const upperBounds: number[] = new Array(nVars).fill(1);
-  INGREDIENT_ORDER.forEach((k, i) => {
+  activeKeys.forEach((k, i) => {
+    const ing = ingMap[k];
     const b = animal.bounds[k];
-    if (b.lb > 0) {
+    // Use animal bounds if defined, otherwise use ingredient's default minUsage/maxUsage
+    const lb = b ? b.lb : (ing?.minUsage ?? 0);
+    const ub = b ? b.ub : (ing?.maxUsage ?? 100);
+    if (lb > 0) {
       const coeff = new Array(nVars).fill(0);
       coeff[i] = 1;
-      constraints.push({ coeff, op: ">=", rhs: b.lb / 100 });
+      constraints.push({ coeff, op: ">=", rhs: lb / 100 });
     }
-    upperBounds[i] = b.ub / 100;
+    upperBounds[i] = ub / 100;
   });
 
   const result = solveLP(cost, constraints, upperBounds);
@@ -322,19 +340,41 @@ export function formulateRation(params: FormulateParams): FormulationResult {
     };
   }
 
-  // Build components.
-  const components = INGREDIENT_ORDER.map((k, i) => {
+  // Build components — read nutrition from DB, NOT hardcoded.
+  const components = activeKeys.map((k, i) => {
+    const ing = ingMap[k];
+    if (!ing) return null;
     const percent = result.x[i] * 100;
     const kg = +(result.x[i] * dmi).toFixed(3);
-    const c = +(result.x[i] * dmi * (params.prices[k] ?? INGREDIENTS[k].defaultPrice)).toFixed(2);
-    return { ingredient: INGREDIENTS[k], percent, kg, cost: c };
-  }).filter((c) => c.percent > 0.05);
+    const price = params.prices[k] ?? ing.price;
+    const c = +(result.x[i] * dmi * price).toFixed(2);
+    return {
+      ingredient: {
+        key: ing.key,
+        name: ing.name,
+        nameEn: ing.nameEn,
+        short: ing.name,
+        shortEn: ing.nameEn,
+        category: ing.category,
+        categoryLabel: ing.category,
+        defaultPrice: ing.price,
+        protein: ing.protein,
+        tdn: ing.tdn,
+        fiber: ing.fiber,
+        color: "",
+        icon: undefined as never,
+      },
+      percent,
+      kg,
+      cost: c,
+    };
+  }).filter((c): c is NonNullable<typeof c> => c !== null && c.percent > 0.05);
 
-  // Achieved nutrition.
+  // Achieved nutrition — read from DB.
   const achieved = {
-    cp: INGREDIENT_ORDER.reduce((s, k, i) => s + result.x[i] * INGREDIENTS[k].protein, 0),
-    tdn: INGREDIENT_ORDER.reduce((s, k, i) => s + result.x[i] * INGREDIENTS[k].tdn, 0),
-    fiber: INGREDIENT_ORDER.reduce((s, k, i) => s + result.x[i] * INGREDIENTS[k].fiber, 0),
+    cp: activeKeys.reduce((s, k, i) => s + result.x[i] * (ingMap[k]?.protein ?? 0), 0),
+    tdn: activeKeys.reduce((s, k, i) => s + result.x[i] * (ingMap[k]?.tdn ?? 0), 0),
+    fiber: activeKeys.reduce((s, k, i) => s + result.x[i] * (ingMap[k]?.fiber ?? 0), 0),
   };
 
   const totalCost = +components.reduce((s, c) => s + c.cost, 0).toFixed(2);
@@ -375,38 +415,54 @@ import type { PriceMap } from "./storage";
  * UI can live-update as the farmer drags the percentages.
  */
 export function computeManualResult(
-  percents: Partial<Record<IngredientKey, number>>,
+  percents: Partial<Record<string, number>>,
   perAnimalDmi: number,
-  prices: PriceMap,
+  prices: Record<string, number>,
   targets: { cpMin: number; tdnMin: number; fiberMax: number },
-  flockSize: number = 1
+  flockSize: number = 1,
+  ingredients: IngredientNutrition[] = []
 ): FormulationResult {
   const flock = Math.max(1, Math.round(flockSize));
   const dmi = +(perAnimalDmi * flock).toFixed(3);
 
-  const components = INGREDIENT_ORDER.filter((k) => (percents[k] ?? 0) > 0.05).map(
-    (k) => {
-      const pct = percents[k] ?? 0;
-      const ing = INGREDIENTS[k];
-      const kg = +((pct / 100) * dmi).toFixed(3);
-      const cost = +(kg * (prices[k] ?? ing.defaultPrice)).toFixed(2);
-      return { ingredient: ing, percent: pct, kg, cost };
-    }
-  );
+  // Build map from editable DB
+  const ingMap: Record<string, IngredientNutrition> = {};
+  for (const ing of ingredients) ingMap[ing.key] = ing;
+
+  const allKeys = Object.keys(percents).filter((k) => (percents[k] ?? 0) > 0.05);
+
+  const components = allKeys.map((k) => {
+    const pct = percents[k] ?? 0;
+    const ing = ingMap[k];
+    const kg = +((pct / 100) * dmi).toFixed(3);
+    const price = prices[k] ?? ing?.price ?? 0;
+    const cost = +(kg * price).toFixed(2);
+    return {
+      ingredient: {
+        key: k,
+        name: ing?.name ?? k,
+        nameEn: ing?.nameEn ?? k,
+        short: ing?.name ?? k,
+        shortEn: ing?.nameEn ?? k,
+        category: ing?.category ?? "additive",
+        categoryLabel: ing?.category ?? "additive",
+        defaultPrice: ing?.price ?? 0,
+        protein: ing?.protein ?? 0,
+        tdn: ing?.tdn ?? 0,
+        fiber: ing?.fiber ?? 0,
+        color: "",
+        icon: undefined as never,
+      },
+      percent: pct,
+      kg,
+      cost,
+    };
+  });
 
   const achieved = {
-    cp: INGREDIENT_ORDER.reduce(
-      (s, k) => s + ((percents[k] ?? 0) / 100) * INGREDIENTS[k].protein,
-      0
-    ),
-    tdn: INGREDIENT_ORDER.reduce(
-      (s, k) => s + ((percents[k] ?? 0) / 100) * INGREDIENTS[k].tdn,
-      0
-    ),
-    fiber: INGREDIENT_ORDER.reduce(
-      (s, k) => s + ((percents[k] ?? 0) / 100) * INGREDIENTS[k].fiber,
-      0
-    ),
+    cp: allKeys.reduce((s, k) => s + ((percents[k] ?? 0) / 100) * (ingMap[k]?.protein ?? 0), 0),
+    tdn: allKeys.reduce((s, k) => s + ((percents[k] ?? 0) / 100) * (ingMap[k]?.tdn ?? 0), 0),
+    fiber: allKeys.reduce((s, k) => s + ((percents[k] ?? 0) / 100) * (ingMap[k]?.fiber ?? 0), 0),
   };
 
   const totalCost = +components.reduce((s, c) => s + c.cost, 0).toFixed(2);
@@ -422,7 +478,7 @@ export function computeManualResult(
   if (achieved.fiber > targets.fiberMax + 0.5)
     warnings.push("الألياف أعلى من الموصى به.");
 
-  const sumPct = INGREDIENT_ORDER.reduce((s, k) => s + (percents[k] ?? 0), 0);
+  const sumPct = allKeys.reduce((s, k) => s + (percents[k] ?? 0), 0);
   if (Math.abs(sumPct - 100) > 0.1) {
     warnings.push(`مجموع النسب ${sumPct.toFixed(1)}% — يجب أن يساوي 100%.`);
   }

@@ -81,7 +81,7 @@ export function storageAvailable(): boolean {
 /*  PRICES (with multiple price profiles)                              */
 /* ================================================================== */
 
-export type PriceMap = Record<IngredientKey, number>;
+export type PriceMap = Record<string, number>;
 
 /** Legacy single-price-map key. Kept only to migrate older installs. */
 const PRICES_KEY = "aleeqa.prices.v1";
@@ -105,8 +105,13 @@ export interface PriceProfile {
 }
 
 export function defaultPrices(): PriceMap {
-  const map = {} as PriceMap;
-  for (const k of INGREDIENT_ORDER) map[k] = INGREDIENTS[k].defaultPrice;
+  // Build from the editable ingredient DB, not from hardcoded values.
+  const map: PriceMap = {};
+  // Import lazily to avoid circular dependency issues during SSR.
+  const { DEFAULT_INGREDIENTS } = require("./ingredient-db");
+  for (const ing of DEFAULT_INGREDIENTS) {
+    map[ing.key] = ing.price;
+  }
   return map;
 }
 
@@ -536,4 +541,78 @@ export function usePersistentState<T>(key: string, initial: T) {
   );
 
   return [value, update] as const;
+}
+
+/* ================================================================== */
+/*  INGREDIENTS (editable nutrition DB)                                 */
+/* ================================================================== */
+
+import {
+  loadIngredients,
+  saveIngredients,
+  resetIngredients,
+  type IngredientNutrition,
+} from "./ingredient-db";
+
+let cachedIngredients: IngredientNutrition[] | null = null;
+const ingredientListeners = new Set<() => void>();
+
+function getIngredientsSnapshot(): IngredientNutrition[] {
+  if (!cachedIngredients) {
+    cachedIngredients = loadIngredients();
+  }
+  return cachedIngredients;
+}
+
+function getIngredientsServerSnapshot(): IngredientNutrition[] {
+  // Use require to avoid circular import at module load
+  const { DEFAULT_INGREDIENTS } = require("./ingredient-db");
+  return DEFAULT_INGREDIENTS;
+}
+
+function notifyIngredients() {
+  ingredientListeners.forEach((l) => l());
+}
+
+export function useIngredients() {
+  const ingredients = useSyncExternalStore(
+    subscribeIngredients,
+    getIngredientsSnapshot,
+    getIngredientsServerSnapshot
+  );
+
+  const updateIngredient = useCallback(
+    (key: string, field: keyof IngredientNutrition, value: string | number) => {
+      const next = getIngredientsSnapshot().map((ing) =>
+        ing.key === key ? { ...ing, [field]: value } : ing
+      );
+      cachedIngredients = next;
+      saveIngredients(next);
+      notifyIngredients();
+    },
+    []
+  );
+
+  const updateAllIngredients = useCallback((next: IngredientNutrition[]) => {
+    cachedIngredients = next;
+    saveIngredients(next);
+    notifyIngredients();
+  }, []);
+
+  const resetAllIngredients = useCallback(() => {
+    cachedIngredients = resetIngredients();
+    notifyIngredients();
+  }, []);
+
+  return {
+    ingredients,
+    updateIngredient,
+    updateAllIngredients,
+    resetAllIngredients,
+  };
+}
+
+function subscribeIngredients(cb: () => void) {
+  ingredientListeners.add(cb);
+  return () => ingredientListeners.delete(cb);
 }
