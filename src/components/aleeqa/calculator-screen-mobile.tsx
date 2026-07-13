@@ -38,7 +38,7 @@ import {
   type FormulationMode,
   type IngredientKey,
 } from "@/lib/feed-data";
-import { computeManualResult, formulateRation } from "@/lib/feed-lp";
+import { computeManualResult, formulateRation, formulateRationWithLocks } from "@/lib/feed-lp";
 import { usePrices, useRations, useIngredients, type PriceMap } from "@/lib/storage";
 import { printRationReport } from "@/lib/ration-report";
 import { useLang } from "@/lib/i18n";
@@ -64,7 +64,9 @@ export function CalculatorScreenMobile() {
 
   // Manual percentage editing.
   const [manualMode, setManualMode] = useState(false);
-  const [manualPercents, setManualPercents] = useState<Partial<Record<IngredientKey, number>>>({});
+  const [manualPercents, setManualPercents] = useState<Record<string, number>>({});
+  const [lockedKeys, setLockedKeys] = useState<Set<string>>(new Set());
+  const [autoBalance, setAutoBalance] = useState(false);
 
   const animal = ANIMALS[animalKey];
 
@@ -131,22 +133,28 @@ export function CalculatorScreenMobile() {
 
   // The result to display: manual override if active, else LP.
   const displayResult = useMemo(() => {
+    if (manualMode && autoBalance && lockedKeys.size > 0) {
+      const lockedPercents: Record<string, number> = {};
+      for (const k of lockedKeys) {
+        lockedPercents[k] = manualPercents[k] ?? 0;
+      }
+      const activeKeys = Object.keys(manualPercents).filter((k) => manualPercents[k] > 0);
+      return formulateRationWithLocks({
+        animalKey, weight, production, prices, mode, flockSize, ingredients,
+        lockedPercents, activeKeys,
+      });
+    }
     if (manualMode) {
       return computeManualResult(
         manualPercents,
         lpResult.perAnimalDmi,
         prices,
-        {
-          cpMin: animal.targets.cpMin,
-          tdnMin: animal.targets.tdnMin,
-          fiberMax: animal.targets.fiberMax,
-        },
-        flockSize,
-        ingredients
+        { cpMin: animal.targets.cpMin, tdnMin: animal.targets.tdnMin, fiberMax: animal.targets.fiberMax },
+        flockSize, ingredients
       );
     }
     return lpResult;
-  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, ingredients]);
+  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, ingredients, autoBalance, lockedKeys, animalKey, weight, production, mode]);
 
   const savings =
     mode === "economy" && !manualMode && lpResult.feasible && balancedResult.feasible
@@ -672,6 +680,20 @@ export function CalculatorScreenMobile() {
             onSave={handleSave}
             onShare={handleShare}
             onPdf={handlePdf}
+            lockedKeys={lockedKeys}
+            onToggleLock={(key) => {
+              setLockedKeys((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              });
+            }}
+            autoBalance={autoBalance}
+            onToggleAutoBalance={() => {
+              setAutoBalance((v) => !v);
+              if (autoBalance) setLockedKeys(new Set());
+            }}
           />
         ) : (
           <RationResult
@@ -736,18 +758,15 @@ interface ManualEditorProps {
   onSave: () => void;
   onShare: () => void;
   onPdf: () => void;
+  lockedKeys: Set<string>;
+  onToggleLock: (key: string) => void;
+  autoBalance: boolean;
+  onToggleAutoBalance: () => void;
 }
 
 function ManualEditor({
-  percents,
-  onChange,
-  result,
-  availableKeys,
-  ingredients,
-  prices,
-  onSave,
-  onShare,
-  onPdf,
+  percents, onChange, result, availableKeys, ingredients, prices,
+  onSave, onShare, onPdf, lockedKeys, onToggleLock, autoBalance, onToggleAutoBalance,
 }: ManualEditorProps) {
   const { t, lang } = useLang();
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
@@ -825,45 +844,65 @@ function ManualEditor({
           )}
         </div>
 
+        {/* Smart Auto-Balance toggle */}
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onToggleAutoBalance}
+              className={cn("relative h-6 w-11 rounded-full transition-colors", autoBalance ? "bg-primary" : "bg-muted-foreground/30")}
+            >
+              <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", autoBalance ? "left-5" : "left-0.5")} />
+            </button>
+            <div>
+              <p className="text-xs font-bold text-foreground">{lang === "ar" ? "موازنة تلقائية ذكية" : "Smart Auto-Balance"}</p>
+              <p className="text-[10px] text-muted-foreground">{lang === "ar" ? "ثبّت الخامات🔒 ويعدّل الباقي تلقائياً" : "Lock🔒, auto-adjust rest"}</p>
+            </div>
+          </div>
+          {lockedKeys.size > 0 && (
+            <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">{lockedKeys.size} {lang === "ar" ? "مثبت" : "locked"}</span>
+          )}
+        </div>
+
+        {/* Auto-balance warnings */}
+        {autoBalance && result.warnings.length > 0 && (
+          <div className="rounded-lg border border-amber-400/50 bg-amber-50 p-2.5">
+            {result.warnings.map((w, i) => (<p key={i} className="text-[10px] font-medium text-amber-800">{w}</p>))}
+          </div>
+        )}
+
         {/* Editable component rows */}
         <div className="space-y-2">
-          {rows.map(({ k, ing, emoji, pct, kg, cost, ingName }) => (
-              <div key={k} className="rounded-lg border border-border/60 bg-card p-2.5">
+          {rows.map(({ k, ing, emoji, pct, kg, cost, ingName }) => {
+            const isLocked = lockedKeys.has(k);
+            return (
+              <div key={k} className={cn("rounded-lg border bg-card p-2.5 transition-colors", isLocked ? "border-primary/50 bg-primary/5" : "border-border/60")}>
                 <div className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-base">
-                    {emoji}
-                  </span>
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-base">{emoji}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-foreground">{ingName}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {fmt(kg, 2)} {t("common.kg")} · {fmt(cost, 1)} {t("common.egp")} · {t("manual.protein")} {fmt(ing?.protein ?? 0, 1)}%
-                    </p>
+                    <p className="text-xs font-bold text-foreground">{ingName}{isLocked && <span className="ms-1 text-primary">🔒</span>}</p>
+                    <p className="text-[10px] text-muted-foreground">{fmt(kg, 2)} {t("common.kg")} · {fmt(cost, 1)} {t("common.egp")} · {t("manual.protein")} {fmt(ing?.protein ?? 0, 1)}%</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      value={pct}
+                    <input type="number" inputMode="decimal" min={0} max={100} step={0.5} value={pct}
                       onChange={(e) => onChange(k, Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                      className="w-16 rounded-md border border-border bg-background px-1.5 py-1 text-center text-sm font-extrabold tabular-nums focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      disabled={isLocked && autoBalance}
+                      className={cn("w-14 rounded-md border bg-background px-1 py-1 text-center text-sm font-extrabold tabular-nums focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20", isLocked && autoBalance && "opacity-50 cursor-not-allowed")}
                     />
                     <span className="text-[10px] text-muted-foreground">%</span>
+                    <button onClick={() => onToggleLock(k)} disabled={!autoBalance}
+                      className={cn("flex h-7 w-7 items-center justify-center rounded-md border transition-colors", !autoBalance ? "opacity-30 cursor-not-allowed border-border" : isLocked ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary")}
+                      title={isLocked ? (lang === "ar" ? "إلغاء التثبيت" : "Unlock") : (lang === "ar" ? "تثبيت" : "Lock")}
+                    >{isLocked ? "🔒" : "🔓"}</button>
                   </div>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  value={pct}
+                <input type="range" min={0} max={100} step={0.5} value={pct}
                   onChange={(e) => onChange(k, Number(e.target.value))}
-                  className="mt-2 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+                  disabled={isLocked && autoBalance}
+                  className={cn("mt-2 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary", isLocked && autoBalance && "opacity-50")}
                 />
               </div>
-          ))}
+            );
+          })}
         </div>
 
         {result.warnings.length > 0 && (
