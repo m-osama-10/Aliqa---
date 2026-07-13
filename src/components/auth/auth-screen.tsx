@@ -21,8 +21,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { signIn, signUp, resetPassword } from "@/lib/services/auth";
+import { signIn, signUp, resetPassword, getCurrentUser } from "@/lib/services/auth";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useAuth } from "@/lib/store/auth-context";
 import { IS_SUPABASE_CONFIGURED } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/aleeqa/language-toggle";
@@ -46,7 +47,8 @@ export function AuthScreen({ onSuccess, onBack }: AuthScreenProps) {
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const { toast } = useToast();
-  const { setGuest, setRememberMe } = useAuthStore();
+  const { setGuest, setRememberMe, setUser } = useAuthStore();
+  const { refreshUser } = useAuth();
   const { t, lang } = useLang();
   const isRtl = lang === "ar";
   const ArrowBack = isRtl ? ArrowRight : ArrowLeft;
@@ -69,6 +71,12 @@ export function AuthScreen({ onSuccess, onBack }: AuthScreenProps) {
       if (mode === "login") {
         setRememberMe(remember);
         await signIn({ email, password });
+        // Fetch the user profile immediately and update the store
+        // so the UI reflects the logged-in state without waiting for
+        // the async onAuthStateChange event.
+        const u = await getCurrentUser();
+        if (u) setUser(u);
+        else refreshUser(); // fallback: trigger onAuthChange re-read
         toast({
           title: isRtl ? "أهلاً بعودتك!" : "Welcome back!",
           description: isRtl ? "تم تسجيل الدخول بنجاح" : "Signed in successfully",
