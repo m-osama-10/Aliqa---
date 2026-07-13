@@ -13,6 +13,9 @@ import {
   Printer,
   FileText,
   Coins,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,7 +45,7 @@ import { useLang } from "@/lib/i18n";
 import { RationResult, rationToText } from "./ration-result";
 import { AdSlot, AdSection } from "@/components/ads";
 
-export function CalculatorScreen() {
+export function CalculatorScreenMobile() {
   const { t, lang } = useLang();
   const { prices, updatePrice, updatedAt, activeProfile } = usePrices();
   const { rations, saveRation } = useRations();
@@ -56,6 +59,7 @@ export function CalculatorScreen() {
   const [production, setProduction] = useState(ANIMALS.dairy_cow.productionDefault);
   const [flockSize, setFlockSize] = useState(ANIMALS.dairy_cow.defaultFlockSize);
   const [mode, setMode] = useState<FormulationMode>("balanced");
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: animal, 2: data, 3: prices, 4: result
 
   // Manual percentage editing.
   const [manualMode, setManualMode] = useState(false);
@@ -241,9 +245,53 @@ export function CalculatorScreen() {
   const clampProduction = (v: number) =>
     Math.min(animal.productionMax, Math.max(animal.productionMin, v || 0));
 
+  const isRtl = lang === "ar";
+  const NextIcon = isRtl ? ChevronLeft : ChevronRight;
+  const PrevIcon = isRtl ? ChevronRight : ChevronLeft;
+
+  const steps = [
+    { n: 1, label: isRtl ? "الحيوان" : "Animal", icon: "🐄" },
+    { n: 2, label: isRtl ? "البيانات" : "Data", icon: "⚖️" },
+    { n: 3, label: isRtl ? "الأسعار" : "Prices", icon: "💰" },
+    { n: 4, label: isRtl ? "النتيجة" : "Result", icon: "📊" },
+  ];
+
   return (
     <div className="space-y-5">
-      {/* Animal selector */}
+      {/* Stepper progress indicator */}
+      <div className="flex items-center justify-between gap-1 rounded-xl border border-border/60 bg-card p-2">
+        {steps.map((s, i) => (
+          <div key={s.n} className="flex flex-1 items-center gap-1">
+            <button
+              onClick={() => setStep(s.n as 1 | 2 | 3 | 4)}
+              className={cn(
+                "flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 transition-all",
+                step === s.n
+                  ? "bg-primary/10 text-primary"
+                  : step > s.n
+                  ? "text-primary/70"
+                  : "text-muted-foreground"
+              )}
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold"
+                style={{
+                  background: step >= s.n ? "var(--primary)" : "var(--muted)",
+                  color: step >= s.n ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                }}
+              >
+                {step > s.n ? <CheckCircle2 className="h-4 w-4" /> : s.n}
+              </span>
+              <span className="text-[10px] font-bold">{s.label}</span>
+            </button>
+            {i < steps.length - 1 && (
+              <div className={cn("h-0.5 w-3 rounded-full", step > s.n ? "bg-primary" : "bg-border")} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* STEP 1: Animal selector */}
+      {step === 1 && (
       <Card className="overflow-hidden border-border/60">
         <CardContent className="p-4">
           <SectionLabel n={lang === "ar" ? "١" : "1"} title={t("calc.s1.title")} />
@@ -267,10 +315,20 @@ export function CalculatorScreen() {
               );
             })}
           </div>
+
+          {/* Next button */}
+          <div className="mt-4 flex justify-end">
+            <Button onClick={() => setStep(2)} className="gap-2" size="lg">
+              {isRtl ? "التالي" : "Next"}
+              <NextIcon className="h-4 w-4" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* Animal data inputs */}
+      {/* STEP 2: Animal data inputs */}
+      {step === 2 && (
       <Card className="border-border/60">
         <CardContent className="space-y-4 p-4">
           <SectionLabel n={lang === "ar" ? "٢" : "2"} title={t("calc.s2.title")} />
@@ -396,10 +454,25 @@ export function CalculatorScreen() {
           <p className="rounded-lg bg-primary/5 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
             {lang === "ar" ? animal.description : animal.descriptionEn}
           </p>
+
+          {/* Nav buttons */}
+          <div className="flex justify-between gap-2 pt-2">
+            <Button onClick={() => setStep(1)} variant="outline" size="lg" className="gap-2">
+              <PrevIcon className="h-4 w-4" />
+              {isRtl ? "السابق" : "Back"}
+            </Button>
+            <Button onClick={() => setStep(3)} size="lg" className="gap-2">
+              {isRtl ? "التالي" : "Next"}
+              <NextIcon className="h-4 w-4" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* Cost optimizer */}
+      {/* STEP 3: Cost optimizer (mode + prices) */}
+      {step === 3 && (
+      <>
       <Card className="border-accent/40">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center gap-2">
@@ -476,7 +549,7 @@ export function CalculatorScreen() {
         </CardContent>
       </Card>
 
-      {/* Prices snapshot — inline editable */}
+      {/* Prices snapshot — inline editable (also in step 3) */}
       <Card className="border-border/60 bg-secondary/30">
         <CardContent className="p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -532,13 +605,34 @@ export function CalculatorScreen() {
           <p className="mt-2 text-[10px] text-muted-foreground">
             {t("calc.s4.hint")}
           </p>
+
+          {/* Nav buttons for step 3 (after prices) */}
+          <div className="flex justify-between gap-2 pt-2">
+            <Button onClick={() => setStep(2)} variant="outline" size="lg" className="gap-2">
+              <PrevIcon className="h-4 w-4" />
+              {isRtl ? "السابق" : "Back"}
+            </Button>
+            <Button onClick={() => setStep(4)} size="lg" className="gap-2">
+              {isRtl ? "احسب العليقة" : "Calculate"}
+              <Calculator className="h-4 w-4" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
+      </>
+      )}
 
-      <Separator />
-
-      {/* Result */}
+      {/* STEP 4: Result */}
+      {step === 4 && (
+      <>
       <div>
+        {/* Back button */}
+        <div className="mb-3 flex justify-start">
+          <Button onClick={() => setStep(3)} variant="outline" size="sm" className="gap-2">
+            <PrevIcon className="h-4 w-4" />
+            {isRtl ? "تعديل البيانات" : "Edit data"}
+          </Button>
+        </div>
         {/* In-feed ad above the result */}
         <AdSection placement="in-feed" label="إعلان" className="mb-3" />
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -612,6 +706,16 @@ export function CalculatorScreen() {
           {t("calc.disclaimer")}
         </p>
       </div>
+
+      {/* Start over button */}
+      <div className="mt-4 flex justify-center">
+        <Button onClick={() => setStep(1)} variant="outline" size="lg" className="gap-2">
+          <RotateCcw className="h-4 w-4" />
+          {isRtl ? "ابدأ من جديد" : "Start over"}
+        </Button>
+      </div>
+      </>
+      )}
     </div>
   );
 }
