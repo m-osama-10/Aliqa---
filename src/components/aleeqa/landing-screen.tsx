@@ -15,16 +15,19 @@ import {
   Leaf,
   Menu,
   X,
+  Info,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ANIMALS, ANIMAL_ORDER, INGREDIENTS } from "@/lib/feed-data";
 import { useLang } from "@/lib/i18n";
 import { LanguageToggle } from "./language-toggle";
 import { ThemeToggle } from "./theme-toggle";
+import { AboutScreen } from "./about-screen";
 import { AdSlot, AdSection, AdSocialBar, AdSmartlink } from "@/components/ads";
 
 interface LandingScreenProps {
@@ -33,6 +36,7 @@ interface LandingScreenProps {
 
 export function LandingScreen({ onEnter }: LandingScreenProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const { t, lang } = useLang();
 
   const scrollTo = (id: string) => {
@@ -68,6 +72,10 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <Button onClick={() => setAboutOpen(true)} size="sm" variant="outline" className="gap-1.5">
+              <Info className="h-4 w-4" />
+              <span className="hidden sm:inline">{lang === "ar" ? "حول" : "About"}</span>
+            </Button>
             <Button onClick={onEnter} size="sm" className="gap-1.5">
               <Calculator className="h-4 w-4" />
               {t("common.start_calc")}
@@ -360,6 +368,18 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </div>
       </footer>
+
+      {/* About Dialog */}
+      <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{lang === "ar" ? "حول التطبيق" : "About"}</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <AboutScreen />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

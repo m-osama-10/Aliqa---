@@ -14,6 +14,7 @@ import {
   Phone,
   Users,
   GraduationCap,
+  UserCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -31,6 +32,50 @@ const INGREDIENT_EMOJI: Record<string, string> = {
   premix: "💊",
 };
 
+interface TeamMember {
+  name: string;
+  initials: string;
+  specialty: string;
+  gradient: string;
+  photo?: string; // placeholder for personal photo
+  links: { href: string; icon: typeof Github; label: string }[];
+}
+
+const TEAM: TeamMember[] = [
+  {
+    name: "م. محمد أسامة",
+    initials: "م.م",
+    specialty: "بايوتكنولوجي",
+    gradient: "from-primary to-primary/70",
+    links: [
+      { href: "https://github.com/m-osama-10", icon: Github, label: "GitHub" },
+      { href: "https://www.facebook.com/M.o0sama", icon: Facebook, label: "Facebook" },
+      { href: "https://www.linkedin.com/in/MoOsama", icon: Linkedin, label: "LinkedIn" },
+      { href: "tel:01116938114", icon: Phone, label: "01116938114" },
+    ],
+  },
+  {
+    name: "م. حازم أسامة",
+    initials: "م.ح",
+    specialty: "إنتاج حيواني",
+    gradient: "from-amber-500 to-amber-600",
+    links: [
+      { href: "https://www.facebook.com/hazem.osama.509", icon: Facebook, label: "Facebook" },
+      { href: "tel:+201021339436", icon: Phone, label: "+20 10 21339436" },
+    ],
+  },
+  {
+    name: "م. خالد خشيلة",
+    initials: "م.خ",
+    specialty: "إنتاج حيواني",
+    gradient: "from-emerald-500 to-emerald-600",
+    links: [
+      { href: "https://www.facebook.com/khaled.kashila", icon: Facebook, label: "Facebook" },
+      { href: "tel:+201025409928", icon: Phone, label: "+20 10 25409928" },
+    ],
+  },
+];
+
 export function AboutScreen() {
   const { t, lang } = useLang();
 
@@ -38,6 +83,76 @@ export function AboutScreen() {
 
   return (
     <div className="space-y-4">
+      {/* Team & Developers Section — FIRST */}
+      <Card className="overflow-hidden border-primary/20">
+        <div className="bg-gradient-to-l from-primary to-primary/80 px-4 py-4 text-primary-foreground">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            <h2 className="text-lg font-black">
+              {lang === "ar" ? "فريق العمل" : "Our Team"}
+            </h2>
+          </div>
+          <p className="mt-0.5 text-xs text-primary-foreground/80">
+            {lang === "ar"
+              ? "خريجو كلية الزراعة — جامعة أسيوط 2018م"
+              : "Faculty of Agriculture graduates — Assiut University 2018"}
+          </p>
+        </div>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {TEAM.map((member) => (
+              <div
+                key={member.name}
+                className="flex flex-col items-center rounded-xl border border-border/60 bg-card p-3 text-center"
+              >
+                {/* Photo placeholder */}
+                <div
+                  className={`mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br ${member.gradient} text-lg font-black text-white shadow-sm`}
+                >
+                  {member.photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={member.photo}
+                      alt={member.name}
+                      className="h-16 w-16 rounded-full object-cover"
+                    />
+                  ) : (
+                    member.initials
+                  )}
+                </div>
+                <p className="text-sm font-bold text-foreground">{member.name}</p>
+                <div className="mt-0.5 flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+                  <GraduationCap className="h-3 w-3 text-primary" />
+                  {member.specialty}
+                </div>
+                {/* Social links */}
+                <div className="mt-2 flex flex-wrap justify-center gap-1">
+                  {member.links.map((link) => {
+                    const Icon = link.icon;
+                    const isPhone = link.href.startsWith("tel:");
+                    return (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        target={isPhone ? "_self" : "_blank"}
+                        rel="noopener noreferrer"
+                        title={link.label}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:border-primary hover:bg-primary/10 hover:text-primary"
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* App info card */}
       <Card className="overflow-hidden border-primary/20">
         <div className="bg-gradient-to-l from-primary to-primary/80 px-4 py-5 text-primary-foreground">
           <div className="flex items-center gap-3">
@@ -124,84 +239,6 @@ export function AboutScreen() {
         </CardContent>
       </Card>
 
-      <Separator />
-
-      {/* Team & Developers Section */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardContent className="p-4">
-          <div className="mb-4 flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <p className="text-sm font-extrabold text-foreground">
-              {lang === "ar" ? "فريق العمل" : "Our Team"}
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {/* Developer 1: Mohamed Osama */}
-            <div className="rounded-xl border border-border/60 bg-card p-3">
-              <div className="mb-2 flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-sm font-black text-primary-foreground">
-                  م.م
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-foreground">م. محمد أسامة</p>
-                  <div className="mt-1 flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                    <GraduationCap className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary" />
-                    <span>خريج كلية زراعة جامعة أسيوط 2018م — قسم بايوتكنولوجي</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <SocialLink href="https://github.com/m-osama-10" icon={Github} label="GitHub" color="text-foreground hover:bg-secondary" />
-                <SocialLink href="https://www.facebook.com/M.o0sama" icon={Facebook} label="Facebook" color="text-blue-600 hover:bg-blue-50" />
-                <SocialLink href="https://www.linkedin.com/in/MoOsama" icon={Linkedin} label="LinkedIn" color="text-blue-700 hover:bg-blue-50" />
-                <SocialLink href="tel:01116938114" icon={Phone} label="01116938114" color="text-green-600 hover:bg-green-50" />
-              </div>
-            </div>
-
-            {/* Developer 2: Hazem Osama */}
-            <div className="rounded-xl border border-border/60 bg-card p-3">
-              <div className="mb-2 flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-sm font-black text-white">
-                  م.ح
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-foreground">م. حازم أسامة</p>
-                  <div className="mt-1 flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                    <GraduationCap className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary" />
-                    <span>خريج كلية زراعة جامعة أسيوط 2018م — قسم إنتاج حيواني</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <SocialLink href="https://www.facebook.com/hazem.osama.509" icon={Facebook} label="Facebook" color="text-blue-600 hover:bg-blue-50" />
-                <SocialLink href="tel:+201021339436" icon={Phone} label="+20 10 21339436" color="text-green-600 hover:bg-green-50" />
-              </div>
-            </div>
-
-            {/* Developer 3: Khaled Kashila */}
-            <div className="rounded-xl border border-border/60 bg-card p-3">
-              <div className="mb-2 flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-sm font-black text-white">
-                  م.خ
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-foreground">م. خالد خشيلة</p>
-                  <div className="mt-1 flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                    <GraduationCap className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary" />
-                    <span>خريج كلية زراعة جامعة أسيوط 2018م — قسم إنتاج حيواني</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <SocialLink href="https://www.facebook.com/khaled.kashila" icon={Facebook} label="Facebook" color="text-blue-600 hover:bg-blue-50" />
-                <SocialLink href="tel:+201025409928" icon={Phone} label="+20 10 25409928" color="text-green-600 hover:bg-green-50" />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="flex items-center justify-center gap-2 py-2 text-center">
         <Calculator className="h-4 w-4 text-primary" />
         <p className="text-[11px] text-muted-foreground">
@@ -248,30 +285,5 @@ function Step({ n, text }: { n: string; text: string }) {
       </span>
       <span>{text}</span>
     </li>
-  );
-}
-
-function SocialLink({
-  href,
-  icon: Icon,
-  label,
-  color,
-}: {
-  href: string;
-  icon: typeof Github;
-  label: string;
-  color: string;
-}) {
-  const isPhone = href.startsWith("tel:");
-  return (
-    <a
-      href={href}
-      target={isPhone ? "_self" : "_blank"}
-      rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[11px] font-bold transition-colors ${color}`}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
-    </a>
   );
 }
