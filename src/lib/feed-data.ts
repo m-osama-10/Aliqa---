@@ -15,7 +15,7 @@ export type IngredientKey =
   | "straw"
   | "premix";
 
-export type IngredientCategory = "energy" | "protein" | "fiber" | "additive";
+export type IngredientCategory = "energy" | "protein" | "fiber" | "mineral" | "vitamin" | "additive";
 
 export interface Ingredient {
   key: IngredientKey;
@@ -31,6 +31,8 @@ export interface Ingredient {
   fiber: number; // crude fiber %
   color: string; // oklch
   icon: LucideIcon;
+  /** Emoji used in mobile/manual editor UI (optional on legacy Ingredient records) */
+  emoji?: string;
 }
 
 export const INGREDIENTS: Record<IngredientKey, Ingredient> = {
@@ -139,6 +141,8 @@ export const CATEGORY_COLORS: Record<IngredientCategory, string> = {
   energy: "oklch(0.78 0.15 78)",
   protein: "oklch(0.6 0.13 140)",
   fiber: "oklch(0.6 0.12 125)",
+  mineral: "oklch(0.55 0.13 210)",
+  vitamin: "oklch(0.65 0.15 0)",
   additive: "oklch(0.55 0.13 210)",
 };
 

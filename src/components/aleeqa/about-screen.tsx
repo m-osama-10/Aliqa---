@@ -21,7 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { INGREDIENTS, INGREDIENT_ORDER } from "@/lib/feed-data";
 import { useLang } from "@/lib/i18n";
-import { AdSection, AdSmartlink } from "@/components/ads";
+import { AdSection, AdSmartlink, DelayedAd } from "@/components/ads";
 
 const INGREDIENT_EMOJI: Record<string, string> = {
   corn: "🌽",
@@ -241,11 +241,13 @@ export function AboutScreen() {
         </p>
       </div>
 
-      {/* Ad at the bottom of about screen */}
-      <AdSection placement="in-feed" label={t("common.ad")} />
-      <div className="flex justify-center">
-        <AdSmartlink variant="banner" />
-      </div>
+      {/* Ad at the bottom of about screen (delayed) */}
+      <DelayedAd delayMs={10000}>
+        <AdSection placement="in-feed" label={t("common.ad")} />
+        <div className="flex justify-center">
+          <AdSmartlink variant="banner" />
+        </div>
+      </DelayedAd>
     </div>
   );
 }

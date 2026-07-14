@@ -16,6 +16,11 @@ import {
   Menu,
   X,
   Info,
+  Sparkles,
+  SlidersHorizontal,
+  GitCompare,
+  FileText,
+  Layers,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -28,7 +33,7 @@ import { useLang } from "@/lib/i18n";
 import { LanguageToggle } from "./language-toggle";
 import { ThemeToggle } from "./theme-toggle";
 import { AboutScreen } from "./about-screen";
-import { AdSlot, AdSection, AdSocialBar, AdSmartlink } from "@/components/ads";
+import { AdSlot, AdSection, DelayedAd } from "@/components/ads";
 
 interface LandingScreenProps {
   onEnter: () => void;
@@ -112,8 +117,6 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
       </header>
 
       <main className="flex-1">
-        {/* Global social bar (injected once) */}
-        <AdSocialBar />
         {/* Hero */}
         <section id="top" className="relative overflow-hidden bg-hero-glow">
           <div className="absolute inset-0 bg-dots-pattern opacity-40" />
@@ -159,8 +162,10 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* In-feed ad after hero */}
-        <AdSection placement="in-feed" label={t("common.ad")} />
+        {/* In-feed ad after hero (delayed — no immediate popup) */}
+        <DelayedAd delayMs={10000}>
+          <AdSection placement="in-feed" label={t("common.ad")} />
+        </DelayedAd>
 
         {/* Animal strip */}
         <section className="border-y border-border/50 bg-secondary/30">
@@ -187,11 +192,12 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* Sidebar + smartlink ad block */}
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4 py-8 sm:flex-row sm:justify-center sm:px-6">
-          <AdSlot placement="sidebar" />
-          <AdSmartlink variant="banner" />
-        </div>
+        {/* Delayed sidebar ad (was intrusive smartlink+sidebar block) */}
+        <DelayedAd delayMs={12000}>
+          <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4 py-8 sm:flex-row sm:justify-center sm:px-6">
+            <AdSlot placement="sidebar" />
+          </div>
+        </DelayedAd>
 
         {/* Why use the app */}
         <section id="why" className="scroll-mt-16 py-12 sm:py-16">
@@ -242,8 +248,10 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* In-feed ad between sections */}
-        <AdSection placement="in-feed" label={t("common.ad")} />
+        {/* In-feed ad between sections (delayed) */}
+        <DelayedAd delayMs={10000}>
+          <AdSection placement="in-feed" label={t("common.ad")} />
+        </DelayedAd>
 
         {/* How it works */}
         <section id="how" className="scroll-mt-16 bg-secondary/30 py-12 sm:py-16">
@@ -274,13 +282,12 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* In-feed ad + smartlink before Features */}
-        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-          <AdSection placement="in-feed" label={t("common.ad")} />
-          <div className="mt-4 flex justify-center">
-            <AdSmartlink variant="banner" />
+        {/* In-feed ad before Features (delayed) */}
+        <DelayedAd delayMs={12000}>
+          <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+            <AdSection placement="in-feed" label={t("common.ad")} />
           </div>
-        </div>
+        </DelayedAd>
 
         {/* Features */}
         <section id="features" className="scroll-mt-16 py-12 sm:py-16">
@@ -316,6 +323,56 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </section>
 
+        {/* What's New — highlights recent features */}
+        <section id="new" className="scroll-mt-16 bg-gradient-to-b from-primary/5 to-transparent py-12 sm:py-16">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+            <div className="mb-8 text-center">
+              <Badge className="mb-2 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/10">
+                <Sparkles className="h-3.5 w-3.5" />
+                {t("landing.new.eyebrow")}
+              </Badge>
+              <h2 className="text-balance text-2xl font-black leading-tight text-foreground sm:text-3xl">
+                {t("landing.new.title")}
+              </h2>
+              <p className="mx-auto mt-2 max-w-2xl text-balance text-sm text-muted-foreground">
+                {t("landing.new.subtitle")}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <WhatsNewCard
+                icon={Layers}
+                title={t("landing.new.n1.t")}
+                desc={t("landing.new.n1.d")}
+              />
+              <WhatsNewCard
+                icon={SlidersHorizontal}
+                title={t("landing.new.n2.t")}
+                desc={t("landing.new.n2.d")}
+              />
+              <WhatsNewCard
+                icon={Sparkles}
+                title={t("landing.new.n3.t")}
+                desc={t("landing.new.n3.d")}
+              />
+              <WhatsNewCard
+                icon={Cpu}
+                title={t("landing.new.n4.t")}
+                desc={t("landing.new.n4.d")}
+              />
+              <WhatsNewCard
+                icon={GitCompare}
+                title={t("landing.new.n5.t")}
+                desc={t("landing.new.n5.d")}
+              />
+              <WhatsNewCard
+                icon={FileText}
+                title={t("landing.new.n6.t")}
+                desc={t("landing.new.n6.d")}
+              />
+            </div>
+          </div>
+        </section>
+
         {/* Final CTA */}
         <section className="py-12 sm:py-16">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
@@ -340,12 +397,14 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* Footer leaderboard ad */}
-        <div className="border-t border-border/40 bg-muted/20 py-3">
-          <div className="mx-auto flex max-w-5xl justify-center px-4">
-            <AdSlot placement="footer" />
+        {/* Footer leaderboard ad (delayed) */}
+        <DelayedAd delayMs={15000}>
+          <div className="border-t border-border/40 bg-muted/20 py-3">
+            <div className="mx-auto flex max-w-5xl justify-center px-4">
+              <AdSlot placement="footer" />
+            </div>
           </div>
-        </div>
+        </DelayedAd>
       </main>
 
       {/* Footer */}
@@ -592,6 +651,33 @@ function FeatureRow({
             </li>
           ))}
         </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WhatsNewCard({
+  icon: Icon,
+  title,
+  desc,
+}: {
+  icon: typeof Calculator;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Card className="group relative overflow-hidden border-primary/20 transition-all hover:border-primary/40 hover:shadow-md">
+      <CardContent className="p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary transition-transform group-hover:scale-110">
+            <Icon className="h-5 w-5" />
+          </span>
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
+            <Sparkles className="h-3 w-3 text-primary" />
+          </span>
+        </div>
+        <p className="mb-1 text-sm font-extrabold text-foreground">{title}</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{desc}</p>
       </CardContent>
     </Card>
   );

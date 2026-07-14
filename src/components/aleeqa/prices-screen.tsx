@@ -23,7 +23,7 @@ import {
   type IngredientNutrition,
 } from "@/lib/ingredient-db";
 import { useLang } from "@/lib/i18n";
-import { AdSection, AdSmartlink } from "@/components/ads";
+import { AdSection, AdSmartlink, DelayedAd } from "@/components/ads";
 
 export function PricesScreen() {
   const { t, lang } = useLang();
@@ -123,10 +123,12 @@ export function PricesScreen() {
         {t("prices.editable_hint")}
       </p>
 
-      <AdSection placement="in-feed" label={t("common.ad")} />
-      <div className="flex justify-center">
-        <AdSmartlink variant="banner" />
-      </div>
+      <DelayedAd delayMs={10000}>
+        <AdSection placement="in-feed" label={t("common.ad")} />
+        <div className="flex justify-center">
+          <AdSmartlink variant="banner" />
+        </div>
+      </DelayedAd>
     </div>
   );
 }

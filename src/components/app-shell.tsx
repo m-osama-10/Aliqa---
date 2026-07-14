@@ -23,7 +23,7 @@ import { LanguageToggle } from "@/components/aleeqa/language-toggle";
 import { ThemeToggle } from "@/components/aleeqa/theme-toggle";
 import { ProfileScreen } from "@/components/profile-screen";
 import { AdBanner } from "@/components/common/ad-banner";
-import { AdSlot, AdSection, AdSocialBar, AdSmartlink } from "@/components/ads";
+import { AdSlot, AdSection, DelayedAd } from "@/components/ads";
 import { useNetworkStatus } from "@/lib/offline/network";
 import { initSyncEngine, syncPendingOps } from "@/lib/offline/sync-engine";
 import { getPendingOps } from "@/lib/offline/cache";
@@ -97,14 +97,14 @@ export function AppShell({ onHome, onShowAuth, onShowAdmin }: AppShellProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      {/* Global social bar ad (injected once) */}
-      <AdSocialBar />
-      {/* Header leaderboard ad (728x90 desktop / 320x50 mobile) */}
-      <div className="border-b border-border/40 bg-muted/20 py-2">
-        <div className="mx-auto flex max-w-3xl w-full justify-center px-2">
-          <AdSlot placement="header" />
+      {/* Header leaderboard ad (delayed — doesn't block initial load) */}
+      <DelayedAd delayMs={10000}>
+        <div className="border-b border-border/40 bg-muted/20 py-2">
+          <div className="mx-auto flex max-w-3xl w-full justify-center px-2">
+            <AdSlot placement="header" />
+          </div>
         </div>
-      </div>
+      </DelayedAd>
       {/* App header */}
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-3xl w-full items-center justify-between gap-3 px-4">
@@ -178,11 +178,13 @@ export function AppShell({ onHome, onShowAuth, onShowAdmin }: AppShellProps) {
           </div>
         )}
 
-        {/* Dynamic Supabase ad on home/calculator tab */}
+        {/* Dynamic Supabase ad on home/calculator tab (delayed) */}
         {(tab === "calculator" || tab === "about") && (
-          <div className="mb-4">
-            <AdBanner placement="home" />
-          </div>
+          <DelayedAd delayMs={10000}>
+            <div className="mb-4">
+              <AdBanner placement="home" />
+            </div>
+          </DelayedAd>
         )}
 
         {tab === "calculator" && <CalculatorScreenMobile />}
@@ -196,19 +198,19 @@ export function AppShell({ onHome, onShowAuth, onShowAdmin }: AppShellProps) {
             onShowAuth && <AuthPrompt onShowAuth={onShowAuth} />
           ))}
 
-        {/* In-feed native ad between content and footer */}
-        <AdSection placement="in-feed" label="إعلان مموّل" />
-        {/* Smartlink CTA */}
-        <div className="my-4 flex justify-center">
-          <AdSmartlink variant="banner" />
-        </div>
+        {/* In-feed native ad (delayed) */}
+        <DelayedAd delayMs={12000}>
+          <AdSection placement="in-feed" label={t("common.ad")} />
+        </DelayedAd>
       </main>
-      {/* Footer banner ad */}
-      <div className="border-t border-border/40 bg-muted/20 py-2">
-        <div className="mx-auto flex max-w-3xl w-full justify-center px-2">
-          <AdSlot placement="footer" />
+      {/* Footer banner ad (delayed) */}
+      <DelayedAd delayMs={15000}>
+        <div className="border-t border-border/40 bg-muted/20 py-2">
+          <div className="mx-auto flex max-w-3xl w-full justify-center px-2">
+            <AdSlot placement="footer" />
+          </div>
         </div>
-      </div>
+      </DelayedAd>
 
       {/* Bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur-lg pb-[env(safe-area-inset-bottom)]">

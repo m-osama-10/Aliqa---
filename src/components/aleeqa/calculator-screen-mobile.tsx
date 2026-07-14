@@ -46,7 +46,7 @@ import { printRationReport } from "@/lib/ration-report";
 import { useLang } from "@/lib/i18n";
 import { RationResult, rationToText } from "./ration-result";
 import { ManualEditor } from "./manual-editor";
-import { AdSlot, AdSection } from "@/components/ads";
+import { AdSlot, AdSection, DelayedAd } from "@/components/ads";
 
 export function CalculatorScreenMobile() {
   const { t, lang } = useLang();
@@ -873,8 +873,10 @@ export function CalculatorScreenMobile() {
             {t("calc.edit_data")}
           </Button>
         </div>
-        {/* In-feed ad above the result */}
-        <AdSection placement="in-feed" label={t("common.ad")} className="mb-3" />
+        {/* In-feed ad above the result (delayed) */}
+        <DelayedAd delayMs={10000}>
+          <AdSection placement="in-feed" label={t("common.ad")} className="mb-3" />
+        </DelayedAd>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Calculator className="h-5 w-5 text-primary" />
           <h3 className="text-base font-extrabold text-foreground">

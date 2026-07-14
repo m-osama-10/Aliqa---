@@ -205,6 +205,7 @@ import {
   type FormulationMode,
   type FormulationResult,
   type IngredientKey,
+  type Ingredient,
   normalizeFormulationResult,
 } from "./feed-data";
 import type { IngredientNutrition } from "./ingredient-db";
@@ -418,7 +419,7 @@ export function formulateRationWithLocks(params: FormulateWithLocksParams): Form
   const result = solveLP(cost, constraints, upperBounds);
 
   // Build final components
-  const allComponents = [];
+  const allComponents: Array<{ ingredient: Ingredient; percent: number; kg: number; cost: number }> = [];
 
   // Locked components
   for (const k of lockedKeys) {
@@ -512,9 +513,9 @@ export function formulateRationWithLocks(params: FormulateWithLocksParams): Form
 }
 
 /** Helper: build an Ingredient-like object from the DB entry */
-function makeIngredientObj(key: string, ing: IngredientNutrition | undefined) {
+function makeIngredientObj(key: string, ing: IngredientNutrition | undefined): Ingredient {
   return {
-    key,
+    key: key as IngredientKey,
     name: ing?.name ?? key,
     nameEn: ing?.nameEn ?? key,
     short: ing?.name ?? key,
@@ -663,22 +664,7 @@ export function formulateRation(params: FormulateParams): FormulationResult {
     const price = params.prices[k] ?? ing.price;
     const c = +(result.x[i] * dmi * price).toFixed(2);
     return {
-      ingredient: {
-        key: ing.key,
-        name: ing.name,
-        nameEn: ing.nameEn,
-        short: ing.name,
-        shortEn: ing.nameEn,
-        category: ing.category,
-        categoryLabel: ing.category,
-        defaultPrice: ing.price,
-        protein: ing.protein,
-        tdn: ing.tdn,
-        fiber: ing.fiber,
-        color: ing.category === "energy" ? "#f59e0b" : ing.category === "protein" ? "#10b981" : ing.category === "fiber" ? "#84cc16" : "#a855f7",
-        emoji: ing.emoji,
-        icon: undefined as never,
-      },
+      ingredient: makeIngredientObj(k, ing),
       percent,
       kg,
       cost: c,
@@ -754,21 +740,7 @@ export function computeManualResult(
     const price = prices[k] ?? ing?.price ?? 0;
     const cost = +(kg * price).toFixed(2);
     return {
-      ingredient: {
-        key: k,
-        name: ing?.name ?? k,
-        nameEn: ing?.nameEn ?? k,
-        short: ing?.name ?? k,
-        shortEn: ing?.nameEn ?? k,
-        category: ing?.category ?? "additive",
-        categoryLabel: ing?.category ?? "additive",
-        defaultPrice: ing?.price ?? 0,
-        protein: ing?.protein ?? 0,
-        tdn: ing?.tdn ?? 0,
-        fiber: ing?.fiber ?? 0,
-        color: "",
-        icon: undefined as never,
-      },
+      ingredient: makeIngredientObj(k, ing),
       percent: pct,
       kg,
       cost,

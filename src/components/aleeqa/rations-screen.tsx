@@ -60,7 +60,7 @@ import {
   CartesianGrid,
   Tooltip as RTooltip,
 } from "recharts";
-import { AdSection } from "@/components/ads";
+import { AdSection, DelayedAd } from "@/components/ads";
 
 type TFunc = (key: string, vars?: Record<string, string | number>) => string;
 type FmtFunc = (n: number, d?: number) => string;
@@ -367,8 +367,10 @@ export function RationsScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* Ad at the bottom of rations screen */}
-      <AdSection placement="in-feed" label={t("common.ad")} />
+      {/* Ad at the bottom of rations screen (delayed) */}
+      <DelayedAd delayMs={10000}>
+        <AdSection placement="in-feed" label={t("common.ad")} />
+      </DelayedAd>
     </div>
   );
 }
@@ -478,8 +480,8 @@ function ComparePanel({ pair, t, lang, fmt, onClear }: ComparePanelProps) {
   const allKeys = Array.from(new Set([...Object.keys(compMapA), ...Object.keys(compMapB)]));
   const componentRows = allKeys.map((key) => {
     // Find ingredient name from the ration components
-    const compA = a.components.find((c) => c.ingredient.key === key);
-    const compB = b.components.find((c) => c.ingredient.key === key);
+    const compA = a.result.components.find((c) => c.ingredient.key === key);
+    const compB = b.result.components.find((c) => c.ingredient.key === key);
     const label = compA
       ? (lang === "ar" ? compA.ingredient.name : compA.ingredient.nameEn)
       : compB

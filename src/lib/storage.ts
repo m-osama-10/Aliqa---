@@ -132,7 +132,12 @@ function readLegacyPrices(): PriceMap | null {
     const raw = localStorage.getItem(PRICES_KEY);
     if (!raw) return null;
     const old = JSON.parse(raw) as Partial<PriceMap>;
-    return { ...defaultPrices(), ...old };
+    const merged = { ...defaultPrices() };
+    for (const k of Object.keys(old)) {
+      const v = old[k];
+      if (typeof v === "number" && Number.isFinite(v)) merged[k] = v;
+    }
+    return merged;
   } catch {
     return null;
   }
