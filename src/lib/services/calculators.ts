@@ -36,11 +36,14 @@ export async function fetchCalculators(): Promise<CalcCategoryWithCalculators[]>
       ),
     ]);
 
-    if (catsRes.error) throw catsRes.error;
-    if (calcsRes.error) throw calcsRes.error;
+    const catsResult = catsRes as { data: unknown; error: unknown };
+    const calcsResult = calcsRes as { data: unknown; error: unknown };
 
-    const categories = (catsRes.data ?? []) as CalculatorCategory[];
-    const calculators = (calcsRes.data ?? []) as Calculator[];
+    if (catsResult.error) throw catsResult.error;
+    if (calcsResult.error) throw calcsResult.error;
+
+    const categories = (Array.isArray(catsResult.data) ? catsResult.data : []) as CalculatorCategory[];
+    const calculators = (Array.isArray(calcsResult.data) ? calcsResult.data : []) as Calculator[];
 
     const result: CalcCategoryWithCalculators[] = categories.map((c) => ({
       ...c,

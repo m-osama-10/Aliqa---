@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { useEffect, useSyncExternalStore } from "react";
+import React, { useEffect, useSyncExternalStore } from "react";
 import { LandingScreen } from "@/components/aleeqa/landing-screen";
 import { AppShell } from "@/components/app-shell";
 import { AuthScreen } from "@/components/auth/auth-screen";
@@ -88,22 +88,47 @@ const useUIStore = create<UIState>((set) => ({
   setShowAdmin: (showAdmin) => set({ showAdmin }),
 }));
 
-function SafeAppInner() {
-  try {
-    return <AppInner />;
-  } catch (e) {
-    const err = e instanceof Error ? e : new Error(String(e));
-    console.error("[Alieqa Render Error]", err.message, err.stack);
-    return (
-      <div style={{ padding: 20, textAlign: "center", fontFamily: "sans-serif" }}>
-        <h2 style={{ color: "#2E7D4F" }}>حدث خطأ</h2>
-        <p style={{ color: "#666", fontSize: 14 }}>{err.message}</p>
-        <pre style={{ fontSize: 10, color: "#999", textAlign: "left", overflow: "auto" }}>
-{err.stack}
-        </pre>
-      </div>
-    );
+/** Error boundary class — catches render errors that try/catch cannot. */
+class RenderErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
   }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[Alieqa Render Error]", error.message, error.stack, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      const err = this.state.error;
+      return (
+        <div style={{ padding: 20, textAlign: "center", fontFamily: "sans-serif" }}>
+          <h2 style={{ color: "#2E7D4F" }}>حدث خطأ</h2>
+          <p style={{ color: "#666", fontSize: 14 }}>{err.message}</p>
+          <pre style={{ fontSize: 10, color: "#999", textAlign: "left", overflow: "auto" }}>
+{err.stack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function SafeAppInner() {
+  return (
+    <RenderErrorBoundary>
+      <AppInner />
+    </RenderErrorBoundary>
+  );
 }
 
 function AppInner() {

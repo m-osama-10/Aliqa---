@@ -38,17 +38,18 @@ export function onBackOnline(cb: () => void) {
 
 /**
  * Retry wrapper with exponential backoff.
+ * Accepts any thenable (Promise, PostgrestFilterBuilder, etc).
  * Usage: const data = await withRetry(() => fetchSomething());
  */
 export async function withRetry<T>(
-  fn: () => Promise<T>,
+  fn: () => Promise<T> | { then: (onfulfilled: (v: T) => T, onrejected?: (e: unknown) => T) => unknown },
   maxRetries = 3,
   baseDelay = 500
 ): Promise<T> {
   let lastErr: unknown;
   for (let i = 0; i <= maxRetries; i++) {
     try {
-      return await fn();
+      return await fn() as T;
     } catch (err) {
       lastErr = err;
       if (i < maxRetries) {

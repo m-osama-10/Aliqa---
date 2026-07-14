@@ -22,7 +22,7 @@ import {
 } from "recharts";
 import type { FormulationResult } from "@/lib/feed-data";
 import { ANIMALS, normalizeFormulationResult } from "@/lib/feed-data";
-import { useLang, type Lang } from "@/lib/i18n";
+import { useLang, DICT, type Lang } from "@/lib/i18n";
 import { translateWarnings } from "@/lib/warnings";
 
 interface RationResultProps {
@@ -356,56 +356,8 @@ function Stat({
 
 /* ================================================================== */
 /*  TEXT SUMMARY (for share / print)                                   */
+/*  Uses the shared DICT from i18n.tsx — no duplicate dictionary.      */
 /* ================================================================== */
-
-const SHARE_DICT: Record<Lang, Record<string, string>> = {
-  ar: {
-    "share.brand": "عليقة — حاسبة العليقة الذكية",
-    "share.animal": "الحيوان",
-    "share.weight": "الوزن",
-    "share.heads": "عدد الرؤوس",
-    "share.birds": "عدد الطيور",
-    "share.type": "النوع",
-    "share.composition": "تركيبة العليقة",
-    "share.daily_cost": "التكلفة اليومية",
-    "share.monthly_cost": "التكلفة الشهرية",
-    "share.per_head": "تكلفة الرأس/يوم",
-    "share.per_bird": "تكلفة الطائر/يوم",
-    "share.dmi": "المادة الجافة",
-    "share.protein": "البروتين الخام",
-    "share.energy": "الطاقة (TDN)",
-    "share.fiber": "الألياف",
-    "share.disclaimer": "قيم تقريبية لأغراض إرشادية. راجع أخصائي التغذية للقطعان الإنتاجية الكبيرة.",
-    "common.kg": "كجم",
-    "common.egp": "ج.م",
-    "common.day": "يوم",
-    "report.mode_balanced": "عليقة متوازنة",
-    "report.mode_economy": "عليقة اقتصادية",
-  },
-  en: {
-    "share.brand": "Aleeqa — Smart Feed Calculator",
-    "share.animal": "Animal",
-    "share.weight": "Weight",
-    "share.heads": "Heads",
-    "share.birds": "Birds",
-    "share.type": "Type",
-    "share.composition": "Ration composition",
-    "share.daily_cost": "Daily cost",
-    "share.monthly_cost": "Monthly cost",
-    "share.per_head": "Cost/head/day",
-    "share.per_bird": "Cost/bird/day",
-    "share.dmi": "Dry matter",
-    "share.protein": "Crude protein",
-    "share.energy": "Energy (TDN)",
-    "share.fiber": "Fiber",
-    "share.disclaimer": "Approximate values for advisory purposes. Consult a nutritionist for large production flocks.",
-    "common.kg": "kg",
-    "common.egp": "EGP",
-    "common.day": "day",
-    "report.mode_balanced": "Balanced ration",
-    "report.mode_economy": "Economy ration",
-  },
-};
 
 export function rationToText(
   result: FormulationResult,
@@ -416,13 +368,10 @@ export function rationToText(
   lang: Lang = "ar"
 ): string {
   // Normalize at the boundary: guarantees achieved/targets/components/costs
-  // are present. Previously this function referenced `safeResult` which was
-  // only defined inside the RationResult component — a scoping bug that would
-  // throw "ReferenceError: safeResult is not defined" whenever the user
-  // shared a ration via WhatsApp/clipboard.
+  // are present.
   const safeResult = normalizeFormulationResult(result);
   const isBird = flockUnit === "طائر" || flockUnit === "bird";
-  const tr = (key: string) => SHARE_DICT[lang][key] ?? SHARE_DICT.ar[key] ?? key;
+  const tr = (key: string) => DICT[lang][key] ?? DICT.ar[key] ?? key;
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
   const fmt = (n: number | undefined | null, d = 2) =>
     (n ?? 0).toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });

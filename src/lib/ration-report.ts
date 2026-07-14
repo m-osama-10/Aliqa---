@@ -8,105 +8,21 @@ import {
   normalizeFormulationResult,
 } from "./feed-data";
 import type { PriceMap } from "./storage";
-import type { Lang } from "./i18n";
+import { DICT, type Lang } from "./i18n";
 
 /* ================================================================== */
-/*  LOCAL BILINGUAL DICTIONARY                                         */
-/*  Mirrors the report.* keys (and a few helpers) from src/lib/i18n.tsx */
-/*  so ration-report.ts can run as a plain TS function (no React).     */
+/*  BILINGUAL TRANSLATION HELPER                                       */
+/*  Uses the shared DICT from i18n.tsx — no duplicate dictionary.      */
 /* ================================================================== */
 
-const REPORT_DICT: Record<Lang, Record<string, string>> = {
-  ar: {
-    "report.title": "تقرير تركيبة العليقة",
-    "report.daily_cost": "التكلفة اليومية",
-    "report.monthly_cost": "التكلفة الشهرية",
-    "report.per_head": "تكلفة الرأس/يوم",
-    "report.per_bird": "تكلفة الطائر/يوم",
-    "report.heads_count": "عدد الرؤوس",
-    "report.birds_count": "عدد الطيور",
-    "report.components_section": "تفصيل مكوّنات العليقة",
-    "report.col_num": "#",
-    "report.col_component": "المكوّن",
-    "report.col_percent": "النسبة",
-    "report.col_qty": "الكمية/يوم",
-    "report.col_protein": "بروتين",
-    "report.col_energy": "طاقة",
-    "report.col_cost": "التكلفة",
-    "report.total": "الإجمالي",
-    "report.savings_label": "التوفير اليومي مقارنة بالعليقة المتوازنة",
-    "report.warnings": "ملاحظات",
-    "report.footer.line1":
-      "قيم تقريبية لأغراض إرشادية مبنية على متوسطات NRC ومعدّلة للسوق المصري. للقطعان الإنتاجية الكبيرة استشر أخصائي تغذية.",
-    "report.footer.line2": "أداة حسابية بحتة — لا تبيع ولا تورد مستلزمات.",
-    "report.mode_balanced": "عليقة متوازنة",
-    "report.mode_economy": "عليقة اقتصادية",
-    "report.print_btn": "🖨️ طباعة / حفظ PDF",
-    "report.popup_blocked": "السماح بالنوافذ المنبثقة لطباعة التقرير، أو جرّب زر المشاركة.",
-    "report.weight_label": "الوزن",
-    "report.production_label": "الإنتاج",
-    "report.dmi_label": "المادة الجافة",
-    "report.cost_for_flock": "للقطيع",
-    "report.cost_for_ration": "للعليقة",
-    "report.per_kg_label": "الكيلوجرام",
-    "report.kg_unit": "كجم",
-    "report.egp_unit": "ج.م",
-    "report.per_day": "يوم",
-    "common.app_name": "عليقة",
-    "common.app_sub": "حاسبة العليقة الذكية للمربي المصري",
-    "report.copyright": "أداة حسابية بحتة — لا تبيع ولا تورد مستلزمات. © {year} عليقة",
-    "report.brand_line": "عليقة · حاسبة العليقة الذكية — www.aleeqa.app",
-    "report.target_ge": "الهدف ≥ {n}%",
-    "report.max_le": "الأقصى {n}%",
-    "report.protein_stat": "البروتين الخام",
-    "report.energy_stat": "الطاقة (TDN)",
-    "report.fiber_stat": "الألياف الخام",
-  },
-  en: {
-    "report.title": "Ration formulation report",
-    "report.daily_cost": "Daily cost",
-    "report.monthly_cost": "Monthly cost",
-    "report.per_head": "Cost/head/day",
-    "report.per_bird": "Cost/bird/day",
-    "report.heads_count": "Number of heads",
-    "report.birds_count": "Number of birds",
-    "report.components_section": "Ration component breakdown",
-    "report.col_num": "#",
-    "report.col_component": "Component",
-    "report.col_percent": "Percent",
-    "report.col_qty": "Qty/day",
-    "report.col_protein": "Protein",
-    "report.col_energy": "Energy",
-    "report.col_cost": "Cost",
-    "report.total": "Total",
-    "report.savings_label": "Daily savings vs balanced ration",
-    "report.warnings": "Notes",
-    "report.footer.line1":
-      "Approximate values for advisory purposes, based on NRC averages tuned for the Egyptian market. For large production flocks consult a nutritionist.",
-    "report.footer.line2": "A pure calculation tool — sells nothing, supplies nothing.",
-    "report.mode_balanced": "Balanced ration",
-    "report.mode_economy": "Economy ration",
-    "report.print_btn": "🖨️ Print / Save PDF",
-    "report.popup_blocked": "Allow pop-ups to print the report, or try the share button.",
-    "report.weight_label": "Weight",
-    "report.production_label": "Production",
-    "report.dmi_label": "Dry matter",
-    "report.cost_for_flock": "for the herd",
-    "report.cost_for_ration": "for the ration",
-    "report.per_kg_label": "Per kg",
-    "report.kg_unit": "kg",
-    "report.egp_unit": "EGP",
-    "report.per_day": "day",
-    "common.app_name": "Aleeqa",
-    "common.app_sub": "Smart Feed Calculator for Egyptian farmers",
-    "report.copyright": "A pure calculation tool — sells nothing, supplies nothing. © {year} Aleeqa",
-    "report.brand_line": "Aleeqa · Smart Feed Calculator — www.aleeqa.app",
-    "report.target_ge": "Target ≥ {n}%",
-    "report.max_le": "Max {n}%",
-    "report.protein_stat": "Crude protein",
-    "report.energy_stat": "Energy (TDN)",
-    "report.fiber_stat": "Crude fiber",
-  },
+const tr = (lang: Lang) => (key: string, vars?: Record<string, string | number>) => {
+  let str = DICT[lang][key] ?? DICT.ar[key] ?? key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      str = str.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+    }
+  }
+  return str;
 };
 
 interface ReportParams {
@@ -133,15 +49,7 @@ export function printRationReport(params: ReportParams) {
   // are all present even if a caller passes a stale saved-ration result.
   const result = normalizeFormulationResult(params.result);
   const lang: Lang = params.lang ?? "ar";
-  const tr = (key: string, vars?: Record<string, string | number>) => {
-    let str = REPORT_DICT[lang][key] ?? REPORT_DICT.ar[key] ?? key;
-    if (vars) {
-      for (const [k, v] of Object.entries(vars)) {
-        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
-      }
-    }
-    return str;
-  };
+  const trFn = tr(lang);
   const animal = ANIMALS[animalKey];
   const flockSize = params.flockSize ?? result.flockSize ?? 1;
   const isFlock = animal.hasFlockInput && flockSize > 1;
@@ -174,10 +82,10 @@ export function printRationReport(params: ReportParams) {
         <td class="num">${i + 1}</td>
         <td><span class="dot" style="background:${(ing as any).color || "#888"}"></span>${ingName}</td>
         <td class="num">${fmt(c.percent, 1)}%</td>
-        <td class="num">${fmt(c.kg, 2)} ${tr("report.kg_unit")}</td>
+        <td class="num">${fmt(c.kg, 2)} ${trFn("report.kg_unit")}</td>
         <td class="num">${fmt(ing.protein, 1)}%</td>
         <td class="num">${fmt(ing.tdn, 0)}%</td>
-        <td class="num cost">${fmt(c.cost, 2)} ${tr("report.egp_unit")}</td>
+        <td class="num cost">${fmt(c.cost, 2)} ${trFn("report.egp_unit")}</td>
       </tr>`;
     })
     .join("");
@@ -186,14 +94,14 @@ export function printRationReport(params: ReportParams) {
     savings && savings.amount > 0
       ? `
     <div class="savings">
-      <span class="savings-label">${tr("report.savings_label")}</span>
-      <span class="savings-value">${fmt(savings.amount, 2)} ${tr("report.egp_unit")} (${fmt(savings.pct, 0)}%)</span>
+      <span class="savings-label">${trFn("report.savings_label")}</span>
+      <span class="savings-value">${fmt(savings.amount, 2)} ${trFn("report.egp_unit")} (${fmt(savings.pct, 0)}%)</span>
     </div>`
       : "";
 
   const warningsBlock =
     result.warnings.length > 0
-      ? `<div class="warnings"><strong>${tr("report.warnings")}:</strong><ul>${result.warnings
+      ? `<div class="warnings"><strong>${trFn("report.warnings")}:</strong><ul>${result.warnings
           .map((w) => `<li>${w}</li>`)
           .join("")}</ul></div>`
       : "";
@@ -202,7 +110,7 @@ export function printRationReport(params: ReportParams) {
     ? ` · ${productionLabel}: ${fmt(production, 0)} ${productionUnit}`
     : "";
   const flockMeta = isFlock
-    ? ` · ${isBird ? tr("report.birds_count") : tr("report.heads_count")}: ${(flockSize ?? 0).toLocaleString(
+    ? ` · ${isBird ? trFn("report.birds_count") : trFn("report.heads_count")}: ${(flockSize ?? 0).toLocaleString(
         numLocale
       )} ${flockUnit}`
     : "";
@@ -211,7 +119,7 @@ export function printRationReport(params: ReportParams) {
 <html lang="${htmlLang}" dir="${htmlDir}">
 <head>
 <meta charset="utf-8" />
-<title>${tr("report.title")} — ${animalName}</title>
+<title>${trFn("report.title")} — ${animalName}</title>
 <style>
   @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
@@ -353,18 +261,18 @@ export function printRationReport(params: ReportParams) {
 </style>
 </head>
 <body>
-  <button class="print-btn no-print" onclick="window.print()">${tr("report.print_btn")}</button>
+  <button class="print-btn no-print" onclick="window.print()">${trFn("report.print_btn")}</button>
   <div class="sheet">
     <div class="header">
       <div class="brand">
         <div class="brand-logo">🌾</div>
         <div>
-          <div class="brand-name">${tr("common.app_name")}</div>
-          <div class="brand-sub">${tr("common.app_sub")}</div>
+          <div class="brand-name">${trFn("common.app_name")}</div>
+          <div class="brand-sub">${trFn("common.app_sub")}</div>
         </div>
       </div>
       <div class="report-title">
-        <h1>${tr("report.title")}</h1>
+        <h1>${trFn("report.title")}</h1>
         <div class="date">${dateStr}</div>
       </div>
     </div>
@@ -374,38 +282,38 @@ export function printRationReport(params: ReportParams) {
       <div class="animal-info">
         <div class="animal-name">${animalName}</div>
         <div class="animal-meta">
-          ${tr("report.weight_label")}: ${fmt(weight, animalKey === "layer" || animalKey === "broiler" ? 1 : 0)} ${weightUnit}${productionMeta}${flockMeta}
-          · ${tr("report.dmi_label")}: ${fmt(result.dmi, 2)} ${tr("report.kg_unit")}/${tr("report.per_day")}
+          ${trFn("report.weight_label")}: ${fmt(weight, animalKey === "layer" || animalKey === "broiler" ? 1 : 0)} ${weightUnit}${productionMeta}${flockMeta}
+          · ${trFn("report.dmi_label")}: ${fmt(result.dmi, 2)} ${trFn("report.kg_unit")}/${trFn("report.per_day")}
         </div>
       </div>
-      <div class="mode-badge">${mode === "economy" ? tr("report.mode_economy") : tr("report.mode_balanced")}</div>
+      <div class="mode-badge">${mode === "economy" ? trFn("report.mode_economy") : trFn("report.mode_balanced")}</div>
     </div>
 
     <div class="stats">
       <div class="stat ${result.achieved.cp >= result.targets.cpMin - 0.3 ? "ok" : "warn"}">
-        <div class="stat-label">${tr("report.protein_stat")}</div>
+        <div class="stat-label">${trFn("report.protein_stat")}</div>
         <div class="stat-value">${fmt(result.achieved.cp, 1)}%</div>
-        <div class="stat-sub">${tr("report.target_ge", { n: fmt(result.targets.cpMin, 0) })}</div>
+        <div class="stat-sub">${trFn("report.target_ge", { n: fmt(result.targets.cpMin, 0) })}</div>
       </div>
       <div class="stat ${result.achieved.tdn >= result.targets.tdnMin - 0.5 ? "ok" : "warn"}">
-        <div class="stat-label">${tr("report.energy_stat")}</div>
+        <div class="stat-label">${trFn("report.energy_stat")}</div>
         <div class="stat-value">${fmt(result.achieved.tdn, 1)}%</div>
-        <div class="stat-sub">${tr("report.target_ge", { n: fmt(result.targets.tdnMin, 0) })}</div>
+        <div class="stat-sub">${trFn("report.target_ge", { n: fmt(result.targets.tdnMin, 0) })}</div>
       </div>
       <div class="stat ${result.achieved.fiber <= result.targets.fiberMax + 0.5 ? "ok" : "warn"}">
-        <div class="stat-label">${tr("report.fiber_stat")}</div>
+        <div class="stat-label">${trFn("report.fiber_stat")}</div>
         <div class="stat-value">${fmt(result.achieved.fiber, 1)}%</div>
-        <div class="stat-sub">${tr("report.max_le", { n: fmt(result.targets.fiberMax, 0) })}</div>
+        <div class="stat-sub">${trFn("report.max_le", { n: fmt(result.targets.fiberMax, 0) })}</div>
       </div>
     </div>
 
     <div class="cost-box">
       <div>
-        <div class="cost-label">${tr("report.daily_cost")} ${isFlock ? tr("report.cost_for_flock") : tr("report.cost_for_ration")}</div>
-        <div class="cost-value">${fmt(result.totalCost, 2)} ${tr("report.egp_unit")}</div>
+        <div class="cost-label">${trFn("report.daily_cost")} ${isFlock ? trFn("report.cost_for_flock") : trFn("report.cost_for_ration")}</div>
+        <div class="cost-value">${fmt(result.totalCost, 2)} ${trFn("report.egp_unit")}</div>
         <div class="cost-sub">
-          ${tr("report.monthly_cost")}: ${fmt(result.costPerMonth, 2)} ${tr("report.egp_unit")}
-          ${isFlock ? ` · ${isBird ? tr("report.per_bird") : tr("report.per_head")}: ${fmt(result.costPerAnimal, 2)} ${tr("report.egp_unit")}` : ` · ${tr("report.per_kg_label")}: ${fmt(result.costPerKg, 2)} ${tr("report.egp_unit")}`}
+          ${trFn("report.monthly_cost")}: ${fmt(result.costPerMonth, 2)} ${trFn("report.egp_unit")}
+          ${isFlock ? ` · ${isBird ? trFn("report.per_bird") : trFn("report.per_head")}: ${fmt(result.costPerAnimal, 2)} ${trFn("report.egp_unit")}` : ` · ${trFn("report.per_kg_label")}: ${fmt(result.costPerKg, 2)} ${trFn("report.egp_unit")}`}
         </div>
       </div>
       <div style="font-size: 36px; opacity: 0.4;">💰</div>
@@ -414,36 +322,36 @@ export function printRationReport(params: ReportParams) {
     ${isFlock ? `
     <div class="flock-box">
       <div class="flock-item">
-        <span class="flock-label">${isBird ? "🐔" : "🐂"} ${isBird ? tr("report.birds_count") : tr("report.heads_count")}</span>
+        <span class="flock-label">${isBird ? "🐔" : "🐂"} ${isBird ? trFn("report.birds_count") : trFn("report.heads_count")}</span>
         <span class="flock-value">${(flockSize ?? 0).toLocaleString(numLocale)} ${flockUnit}</span>
       </div>
       <div class="flock-item">
-        <span class="flock-label">💵 ${tr("report.daily_cost")}</span>
-        <span class="flock-value">${fmt(result.totalCost, 2)} ${tr("report.egp_unit")}</span>
+        <span class="flock-label">💵 ${trFn("report.daily_cost")}</span>
+        <span class="flock-value">${fmt(result.totalCost, 2)} ${trFn("report.egp_unit")}</span>
       </div>
       <div class="flock-item">
-        <span class="flock-label">📅 ${tr("report.monthly_cost")}</span>
-        <span class="flock-value">${fmt(result.costPerMonth, 0)} ${tr("report.egp_unit")}</span>
+        <span class="flock-label">📅 ${trFn("report.monthly_cost")}</span>
+        <span class="flock-value">${fmt(result.costPerMonth, 0)} ${trFn("report.egp_unit")}</span>
       </div>
       <div class="flock-item">
-        <span class="flock-label">${isBird ? "🐣" : "🐂"} ${isBird ? tr("report.per_bird") : tr("report.per_head")}</span>
-        <span class="flock-value">${fmt(result.costPerAnimal, 2)} ${tr("report.egp_unit")}</span>
+        <span class="flock-label">${isBird ? "🐣" : "🐂"} ${isBird ? trFn("report.per_bird") : trFn("report.per_head")}</span>
+        <span class="flock-value">${fmt(result.costPerAnimal, 2)} ${trFn("report.egp_unit")}</span>
       </div>
     </div>` : ""}
 
     ${savingsBlock}
 
-    <h2 class="section">${tr("report.components_section")}</h2>
+    <h2 class="section">${trFn("report.components_section")}</h2>
     <table>
       <thead>
         <tr>
-          <th class="num">${tr("report.col_num")}</th>
-          <th>${tr("report.col_component")}</th>
-          <th class="num">${tr("report.col_percent")}</th>
-          <th class="num">${tr("report.col_qty")}</th>
-          <th class="num">${tr("report.col_protein")}</th>
-          <th class="num">${tr("report.col_energy")}</th>
-          <th class="num">${tr("report.col_cost")}</th>
+          <th class="num">${trFn("report.col_num")}</th>
+          <th>${trFn("report.col_component")}</th>
+          <th class="num">${trFn("report.col_percent")}</th>
+          <th class="num">${trFn("report.col_qty")}</th>
+          <th class="num">${trFn("report.col_protein")}</th>
+          <th class="num">${trFn("report.col_energy")}</th>
+          <th class="num">${trFn("report.col_cost")}</th>
         </tr>
       </thead>
       <tbody>
@@ -451,11 +359,11 @@ export function printRationReport(params: ReportParams) {
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="3">${tr("report.total")}</td>
-          <td class="num">${fmt(result.dmi, 2)} ${tr("report.kg_unit")}</td>
+          <td colspan="3">${trFn("report.total")}</td>
+          <td class="num">${fmt(result.dmi, 2)} ${trFn("report.kg_unit")}</td>
           <td class="num">${fmt(result.achieved.cp, 1)}%</td>
           <td class="num">${fmt(result.achieved.tdn, 1)}%</td>
-          <td class="num cost">${fmt(result.totalCost, 2)} ${tr("report.egp_unit")}</td>
+          <td class="num cost">${fmt(result.totalCost, 2)} ${trFn("report.egp_unit")}</td>
         </tr>
       </tfoot>
     </table>
@@ -463,9 +371,9 @@ export function printRationReport(params: ReportParams) {
     ${warningsBlock}
 
     <div class="footer">
-      <div class="brand-line">${tr("report.brand_line")}</div>
-      <div>${tr("report.footer.line1")}</div>
-      <div>${tr("report.copyright", { year: new Date().getFullYear() })}</div>
+      <div class="brand-line">${trFn("report.brand_line")}</div>
+      <div>${trFn("report.footer.line1")}</div>
+      <div>${trFn("report.copyright", { year: new Date().getFullYear() })}</div>
     </div>
   </div>
   <script>
@@ -478,7 +386,7 @@ export function printRationReport(params: ReportParams) {
   const w = window.open("", "_blank", "width=820,height=1000");
   if (!w) {
     // Pop-up blocked — fallback: write into current document is risky, so alert.
-    alert(tr("report.popup_blocked"));
+    alert(trFn("report.popup_blocked"));
     return;
   }
   w.document.open();

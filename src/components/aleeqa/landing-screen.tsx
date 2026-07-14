@@ -10,7 +10,6 @@ import {
   Share2,
   ShieldCheck,
   ArrowLeft,
-  Check,
   Sprout,
   Leaf,
   Menu,
@@ -289,7 +288,7 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
           </div>
         </DelayedAd>
 
-        {/* Features */}
+        {/* Main Features — unified section with all platform capabilities */}
         <section id="features" className="scroll-mt-16 py-12 sm:py-16">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <div className="mb-8 text-center">
@@ -297,78 +296,20 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
               <h2 className="text-balance text-2xl font-black leading-tight text-foreground sm:text-3xl">
                 {t("landing.features.title")}
               </h2>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <FeatureRow
-                icon={Calculator}
-                title={t("landing.features.f1.t")}
-                points={[t("landing.features.f1.p1"), t("landing.features.f1.p2"), t("landing.features.f1.p3")]}
-              />
-              <FeatureRow
-                icon={PiggyBank}
-                title={t("landing.features.f2.t")}
-                points={[t("landing.features.f2.p1"), t("landing.features.f2.p2"), t("landing.features.f2.p3")]}
-              />
-              <FeatureRow
-                icon={Coins}
-                title={t("landing.features.f3.t")}
-                points={[t("landing.features.f3.p1"), t("landing.features.f3.p2"), t("landing.features.f3.p3")]}
-              />
-              <FeatureRow
-                icon={Share2}
-                title={t("landing.features.f4.t")}
-                points={[t("landing.features.f4.p1"), t("landing.features.f4.p2"), t("landing.features.f4.p3")]}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* What's New — highlights recent features */}
-        <section id="new" className="scroll-mt-16 bg-gradient-to-b from-primary/5 to-transparent py-12 sm:py-16">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
-            <div className="mb-8 text-center">
-              <Badge className="mb-2 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/10">
-                <Sparkles className="h-3.5 w-3.5" />
-                {t("landing.new.eyebrow")}
-              </Badge>
-              <h2 className="text-balance text-2xl font-black leading-tight text-foreground sm:text-3xl">
-                {t("landing.new.title")}
-              </h2>
               <p className="mx-auto mt-2 max-w-2xl text-balance text-sm text-muted-foreground">
-                {t("landing.new.subtitle")}
+                {t("landing.features.subtitle")}
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <WhatsNewCard
-                icon={Layers}
-                title={t("landing.new.n1.t")}
-                desc={t("landing.new.n1.d")}
-              />
-              <WhatsNewCard
-                icon={SlidersHorizontal}
-                title={t("landing.new.n2.t")}
-                desc={t("landing.new.n2.d")}
-              />
-              <WhatsNewCard
-                icon={Sparkles}
-                title={t("landing.new.n3.t")}
-                desc={t("landing.new.n3.d")}
-              />
-              <WhatsNewCard
-                icon={Cpu}
-                title={t("landing.new.n4.t")}
-                desc={t("landing.new.n4.d")}
-              />
-              <WhatsNewCard
-                icon={GitCompare}
-                title={t("landing.new.n5.t")}
-                desc={t("landing.new.n5.d")}
-              />
-              <WhatsNewCard
-                icon={FileText}
-                title={t("landing.new.n6.t")}
-                desc={t("landing.new.n6.d")}
-              />
+              <FeatureCard icon={Calculator} title={t("landing.features.f1.t")} desc={t("landing.features.f1.d")} />
+              <FeatureCard icon={Layers} title={t("landing.features.f2.t")} desc={t("landing.features.f2.d")} />
+              <FeatureCard icon={SlidersHorizontal} title={t("landing.features.f3.t")} desc={t("landing.features.f3.d")} />
+              <FeatureCard icon={Sparkles} title={t("landing.features.f4.t")} desc={t("landing.features.f4.d")} />
+              <FeatureCard icon={PiggyBank} title={t("landing.features.f5.t")} desc={t("landing.features.f5.d")} />
+              <FeatureCard icon={Coins} title={t("landing.features.f6.t")} desc={t("landing.features.f6.d")} />
+              <FeatureCard icon={GitCompare} title={t("landing.features.f7.t")} desc={t("landing.features.f7.d")} />
+              <FeatureCard icon={Share2} title={t("landing.features.f8.t")} desc={t("landing.features.f8.d")} />
+              <FeatureCard icon={FileText} title={t("landing.features.f9.t")} desc={t("landing.features.f9.d")} />
             </div>
           </div>
         </section>
@@ -625,38 +566,7 @@ function StepCard({ n, title, desc }: { n: string; title: string; desc: string }
   );
 }
 
-function FeatureRow({
-  icon: Icon,
-  title,
-  points,
-}: {
-  icon: typeof Calculator;
-  title: string;
-  points: string[];
-}) {
-  return (
-    <Card className="border-border/60">
-      <CardContent className="p-4">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icon className="h-4.5 w-4.5" />
-          </span>
-          <p className="text-sm font-extrabold text-foreground">{title}</p>
-        </div>
-        <ul className="space-y-1.5">
-          {points.map((p) => (
-            <li key={p} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <Check className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
-              {p}
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
-  );
-}
-
-function WhatsNewCard({
+function FeatureCard({
   icon: Icon,
   title,
   desc,
@@ -666,14 +576,11 @@ function WhatsNewCard({
   desc: string;
 }) {
   return (
-    <Card className="group relative overflow-hidden border-primary/20 transition-all hover:border-primary/40 hover:shadow-md">
+    <Card className="group border-border/60 transition-all hover:border-primary/40 hover:shadow-md">
       <CardContent className="p-4">
         <div className="mb-2 flex items-center gap-2">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary transition-transform group-hover:scale-110">
             <Icon className="h-5 w-5" />
-          </span>
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
-            <Sparkles className="h-3 w-3 text-primary" />
           </span>
         </div>
         <p className="mb-1 text-sm font-extrabold text-foreground">{title}</p>

@@ -14,11 +14,12 @@ export async function fetchActiveAds(placement?: AdPlacement): Promise<Ad[]> {
   }
 
   try {
-    const { data, error } = await withRetry(() =>
+    const result = await withRetry(() =>
       supabase.rpc("get_active_ads", { p_placement: placement ?? null })
     );
+    const { data, error } = result as { data: unknown; error: unknown };
     if (error) throw error;
-    const ads = (data ?? []) as Ad[];
+    const ads = (Array.isArray(data) ? data : []) as Ad[];
     if (!placement) cacheSet(CACHE_KEY, ads);
     return ads;
   } catch {
