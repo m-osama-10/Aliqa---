@@ -166,6 +166,16 @@ const DICT: Record<Lang, Record<string, string>> = {
     "manual.over": "زائد {n}% — قلّل النسب",
     "manual.under": "ناقص {n}% — زود النسب",
     "manual.save": "حفظ العليقة",
+    "manual.rebalance": "إعادة التوازن الذكي",
+    "manual.reset": "إعادة ضبط العليقة",
+    "manual.lock": "تثبيت",
+    "manual.unlock": "إلغاء التثبيت",
+    "manual.bounds": "{min}% - {max}%",
+    "manual.kg": "كجم",
+    "manual.egp": "ج.م",
+    "manual.target_deviation": "الانحراف عن الهدف",
+    "manual.components_count": "{n} مكوّن",
+    "manual.no_adjustable": "جميع الخامات مثبتة — لا يمكن إعادة التوزيع",
 
     // ---- ration result ----
     "result.dmi_day": "المادة الجافة/اليوم",
@@ -447,6 +457,16 @@ const DICT: Record<Lang, Record<string, string>> = {
     "manual.over": "Over by {n}% — reduce",
     "manual.under": "Under by {n}% — add more",
     "manual.save": "Save ration",
+    "manual.rebalance": "Smart Rebalance",
+    "manual.reset": "Reset ration",
+    "manual.lock": "Lock",
+    "manual.unlock": "Unlock",
+    "manual.bounds": "{min}% - {max}%",
+    "manual.kg": "kg",
+    "manual.egp": "EGP",
+    "manual.target_deviation": "Target deviation",
+    "manual.components_count": "{n} components",
+    "manual.no_adjustable": "All ingredients locked — cannot redistribute",
 
     // ---- ration result ----
     "result.dmi_day": "Dry matter/day",

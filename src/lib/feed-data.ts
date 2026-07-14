@@ -770,6 +770,15 @@ export interface FormulationResult {
 const EMPTY_ACHIEVED = { cp: 0, tdn: 0, fiber: 0 } as const;
 const EMPTY_TARGETS = { cpMin: 0, tdnMin: 0, fiberMax: 0 } as const;
 
+/**
+ * Safely coerce any value to a finite number, returning 0 for NaN/Infinity/null/undefined.
+ * This prevents NaN from propagating into the UI (which would crash .toFixed() etc).
+ */
+function safeNum(v: unknown, fallback = 0): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function normalizeFormulationResult(
   input: Partial<FormulationResult> | null | undefined
 ): FormulationResult {
@@ -777,38 +786,39 @@ export function normalizeFormulationResult(
   const targets = input?.targets ?? EMPTY_TARGETS;
   const components = Array.isArray(input?.components) ? input!.components : [];
   const warnings = Array.isArray(input?.warnings) ? input!.warnings : [];
-  const flockSize = Math.max(1, Number(input?.flockSize ?? 1));
-  const dmi = Number(input?.dmi ?? 0);
-  const totalCost = Number(input?.totalCost ?? 0);
-  const costPerKg = Number(input?.costPerKg ?? (dmi > 0 ? totalCost / dmi : 0));
-  const costPerAnimal = Number(
-    input?.costPerAnimal ?? (flockSize > 0 ? totalCost / flockSize : 0)
+  const flockSize = Math.max(1, safeNum(input?.flockSize, 1));
+  const dmi = safeNum(input?.dmi);
+  const totalCost = safeNum(input?.totalCost);
+  const costPerKg = safeNum(input?.costPerKg, dmi > 0 ? totalCost / dmi : 0);
+  const costPerAnimal = safeNum(
+    input?.costPerAnimal,
+    flockSize > 0 ? totalCost / flockSize : 0
   );
 
   return {
     dmi,
-    perAnimalDmi: Number(input?.perAnimalDmi ?? dmi),
+    perAnimalDmi: safeNum(input?.perAnimalDmi, dmi),
     flockSize,
     components: components.map((c) => ({
       ingredient: c?.ingredient as Ingredient,
-      percent: Number(c?.percent ?? 0),
-      kg: Number(c?.kg ?? 0),
-      cost: Number(c?.cost ?? 0),
+      percent: safeNum(c?.percent),
+      kg: safeNum(c?.kg),
+      cost: safeNum(c?.cost),
     })),
     totalCost,
     costPerKg,
-    costPerMonth: Number(input?.costPerMonth ?? totalCost * 30),
+    costPerMonth: safeNum(input?.costPerMonth, totalCost * 30),
     costPerAnimal,
-    costPerTon: Number(input?.costPerTon ?? costPerKg * 1000),
+    costPerTon: safeNum(input?.costPerTon, costPerKg * 1000),
     achieved: {
-      cp: Number(achieved.cp ?? 0),
-      tdn: Number(achieved.tdn ?? 0),
-      fiber: Number(achieved.fiber ?? 0),
+      cp: safeNum(achieved.cp),
+      tdn: safeNum(achieved.tdn),
+      fiber: safeNum(achieved.fiber),
     },
     targets: {
-      cpMin: Number(targets.cpMin ?? 0),
-      tdnMin: Number(targets.tdnMin ?? 0),
-      fiberMax: Number(targets.fiberMax ?? 0),
+      cpMin: safeNum(targets.cpMin),
+      tdnMin: safeNum(targets.tdnMin),
+      fiberMax: safeNum(targets.fiberMax),
     },
     feasible: Boolean(input?.feasible ?? false),
     warnings,
