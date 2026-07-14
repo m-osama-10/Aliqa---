@@ -28,7 +28,7 @@ import { IS_SUPABASE_CONFIGURED } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/aleeqa/language-toggle";
 import { ThemeToggle } from "@/components/aleeqa/theme-toggle";
-import { AdSlot, AdSmartlink } from "@/components/ads";
+import { AdSlot } from "@/components/ads";
 
 type Mode = "login" | "register" | "forgot";
 
@@ -385,7 +385,7 @@ export function AuthScreen({ onSuccess, onBack }: AuthScreenProps) {
         {/* Ad below auth card */}
         <div className="mt-6 flex flex-col items-center gap-3">
           <AdSlot placement="header" />
-          <AdSmartlink variant="banner" />
+          <AdSlot placement="in-feed" />
         </div>
       </div>
     </div>
