@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   Calculator,
   PiggyBank,
@@ -68,6 +68,8 @@ export function CalculatorScreen() {
   const [manualPercents, setManualPercents] = useState<Record<string, number>>({});
   const [lockedKeys, setLockedKeys] = useState<Set<string>>(new Set());
   const [autoBalance, setAutoBalance] = useState(false);
+  // Nonce to force re-solve when "Smart Rebalance" button is pressed
+  const [rebalanceNonce, setRebalanceNonce] = useState(0);
 
   const animal = ANIMALS[animalKey];
 
@@ -156,6 +158,7 @@ export function CalculatorScreen() {
   };
 
   // The result to display: manual override if active, else LP.
+  // rebalanceNonce forces re-solve when "Smart Rebalance" is pressed.
   const displayResult = useMemo(() => {
     if (manualMode && autoBalance) {
       // Smart balancing: locked ingredients stay fixed, others adjust
@@ -163,7 +166,9 @@ export function CalculatorScreen() {
       for (const k of lockedKeys) {
         lockedPercents[k] = manualPercents[k] ?? 0;
       }
-      const activeKeys = Object.keys(manualPercents).filter((k) => manualPercents[k] > 0);
+      // Active keys = all selected ingredients (including 0% ones so solver
+      // can adjust them)
+      const activeKeys = selectedIngredientObjects.map((ing) => ing.key);
       return formulateRationWithLocks({
         animalKey,
         weight,
@@ -191,22 +196,49 @@ export function CalculatorScreen() {
       );
     }
     return lpResult;
-  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, selectedIngredientObjects, autoBalance, lockedKeys, animalKey, weight, production, mode]);
+  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, selectedIngredientObjects, autoBalance, lockedKeys, animalKey, weight, production, mode, rebalanceNonce]);
 
-  // Sync manualPercents with auto-balance result so sliders/inputs update
+  // Sync manualPercents with auto-balance result so sliders/inputs update.
+  // FIX: sync ALL available keys (init to 0), not just components — otherwise
+  // ingredients the solver set to 0% would keep their old manualPercents value.
   useEffect(() => {
     if (manualMode && autoBalance && displayResult.feasible) {
       const newPercents: Record<string, number> = {};
+      // Initialize ALL selected ingredients to 0
+      for (const ing of selectedIngredientObjects) {
+        newPercents[ing.key] = 0;
+      }
+      // Update from solver components (only non-zero ingredients)
       for (const c of displayResult.components) {
-        newPercents[c.ingredient.key] = +c.percent.toFixed(1);
+        if (newPercents[c.ingredient.key] !== undefined) {
+          newPercents[c.ingredient.key] = +c.percent.toFixed(1);
+        }
       }
       let changed = false;
       for (const k of Object.keys(newPercents)) {
         if (Math.abs((manualPercents[k] ?? 0) - newPercents[k]) > 0.05) { changed = true; break; }
       }
-      if (changed) setManualPercents((prev) => ({ ...prev, ...newPercents }));
+      if (changed) setManualPercents(newPercents);
     }
-  }, [displayResult, manualMode, autoBalance]);
+  }, [displayResult, manualMode, autoBalance, selectedIngredientObjects]);
+
+  // Toast feedback after "Smart Rebalance" button is pressed.
+  useEffect(() => {
+    if (rebalanceNonce === 0) return; // skip initial mount
+    if (!manualMode) return;
+    if (displayResult.feasible) {
+      toast.success(t("manual.rebalance_success"));
+    } else {
+      toast.error(t("manual.rebalance_failed"));
+    }
+  }, [rebalanceNonce]);
+
+  // Smart Rebalance handler: enables autoBalance + forces re-solve via nonce.
+  // KEEPS locked ingredients (does NOT clear locks) so the solver respects them.
+  const handleRebalance = useCallback(() => {
+    setAutoBalance(true);
+    setRebalanceNonce((n) => n + 1);
+  }, []);
 
   const savings =
     mode === "economy" && !manualMode && lpResult.feasible && balancedResult.feasible
@@ -719,10 +751,7 @@ export function CalculatorScreen() {
             onSave={handleSave}
             onShare={handleShare}
             onPdf={handlePdf}
-            onRebalance={() => {
-              setAutoBalance(true);
-              setLockedKeys(new Set());
-            }}
+            onRebalance={handleRebalance}
             onReset={disableManual}
             lockedKeys={lockedKeys}
             onToggleLock={(key) => {

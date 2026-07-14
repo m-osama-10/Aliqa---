@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   Calculator,
   PiggyBank,
@@ -72,6 +72,9 @@ export function CalculatorScreenMobile() {
   const [manualPercents, setManualPercents] = useState<Record<string, number>>({});
   const [lockedKeys, setLockedKeys] = useState<Set<string>>(new Set());
   const [autoBalance, setAutoBalance] = useState(false);
+  // Nonce to force re-solve when "Smart Rebalance" button is pressed
+  // (enables re-running formulateRationWithLocks even when autoBalance is already ON)
+  const [rebalanceNonce, setRebalanceNonce] = useState(0);
 
   const animal = ANIMALS[animalKey];
 
@@ -162,6 +165,7 @@ export function CalculatorScreenMobile() {
   };
 
   // The result to display: manual override if active, else LP.
+  // rebalanceNonce forces re-solve when "Smart Rebalance" is pressed.
   const displayResult = useMemo(() => {
     if (manualMode && autoBalance) {
       // Smart balancing: locked ingredients stay fixed, others adjust
@@ -169,8 +173,8 @@ export function CalculatorScreenMobile() {
       for (const k of lockedKeys) {
         lockedPercents[k] = manualPercents[k] ?? 0;
       }
-      // Active keys = all ingredients in manualPercents (including 0% ones)
-      const activeKeys = Object.keys(manualPercents);
+      // Active keys = all selected ingredients (including 0% ones)
+      const activeKeys = selectedIngredientObjects.map((ing) => ing.key);
       return formulateRationWithLocks({
         animalKey, weight, production, prices, mode, flockSize, ingredients: selectedIngredientObjects,
         lockedPercents, activeKeys,
@@ -186,15 +190,26 @@ export function CalculatorScreenMobile() {
       );
     }
     return lpResult;
-  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, selectedIngredientObjects, autoBalance, lockedKeys, animalKey, weight, production, mode]);
+  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, selectedIngredientObjects, autoBalance, lockedKeys, animalKey, weight, production, mode, rebalanceNonce]);
 
   // When auto-balance is ON, sync the manualPercents with the computed result
-  // so sliders + inputs reflect the new values automatically
+  // so sliders + inputs reflect the new values automatically.
+  // FIX: sync ALL available keys (init to 0), not just components — otherwise
+  // ingredients the solver set to 0% would keep their old manualPercents value.
   useEffect(() => {
     if (manualMode && autoBalance && displayResult.feasible) {
       const newPercents: Record<string, number> = {};
+      // Initialize ALL selected ingredients to 0
+      for (const ing of selectedIngredientObjects) {
+        newPercents[ing.key] = 0;
+      }
+      // Update from solver components (only non-zero ingredients)
       for (const c of displayResult.components) {
-        newPercents[c.ingredient.key] = +c.percent.toFixed(1);
+        if (newPercents[c.ingredient.key] !== undefined) {
+          newPercents[c.ingredient.key] = +c.percent.toFixed(1);
+        } else {
+          // Component key not in selectedIngredientObjects (stale) — skip
+        }
       }
       // Only update if values actually changed (avoid infinite loop)
       let changed = false;
@@ -205,10 +220,30 @@ export function CalculatorScreenMobile() {
         }
       }
       if (changed) {
-        setManualPercents((prev) => ({ ...prev, ...newPercents }));
+        setManualPercents(newPercents);
       }
     }
-  }, [displayResult, manualMode, autoBalance]);
+  }, [displayResult, manualMode, autoBalance, selectedIngredientObjects]);
+
+  // Toast feedback after "Smart Rebalance" button is pressed.
+  // Watches rebalanceNonce — runs only when the button is pressed, reads the
+  // latest displayResult.feasible to show success or failure message.
+  useEffect(() => {
+    if (rebalanceNonce === 0) return; // skip initial mount
+    if (!manualMode) return; // safety: only in manual mode
+    if (displayResult.feasible) {
+      toast.success(t("manual.rebalance_success"));
+    } else {
+      toast.error(t("manual.rebalance_failed"));
+    }
+  }, [rebalanceNonce]);
+
+  // Smart Rebalance handler: enables autoBalance + forces re-solve via nonce.
+  // KEEPS locked ingredients (does NOT clear locks) so the solver respects them.
+  const handleRebalance = useCallback(() => {
+    setAutoBalance(true);
+    setRebalanceNonce((n) => n + 1);
+  }, []);
 
   const savings =
     mode === "economy" && !manualMode && lpResult.feasible && balancedResult.feasible
@@ -877,10 +912,7 @@ export function CalculatorScreenMobile() {
             onSave={handleSave}
             onShare={handleShare}
             onPdf={handlePdf}
-            onRebalance={() => {
-              setAutoBalance(true);
-              setLockedKeys(new Set());
-            }}
+            onRebalance={handleRebalance}
             onReset={disableManual}
             lockedKeys={lockedKeys}
             onToggleLock={(key) => {

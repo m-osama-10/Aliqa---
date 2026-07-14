@@ -176,6 +176,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     "manual.target_deviation": "الانحراف عن الهدف",
     "manual.components_count": "{n} مكوّن",
     "manual.no_adjustable": "جميع الخامات مثبتة — لا يمكن إعادة التوزيع",
+    "manual.rebalance_success": "تم إعادة التوازن بنجاح — تم تحديث النسب والمؤشرات",
+    "manual.rebalance_failed": "تعذر إيجاد حل يحقق القيود الحالية. جرّب فك بعض المواد المقفلة أو تعديل الحدود.",
+    "manual.rebalance_running": "جارٍ إعادة حساب العليقة...",
 
     // ---- ration result ----
     "result.dmi_day": "المادة الجافة/اليوم",
@@ -467,6 +470,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     "manual.target_deviation": "Target deviation",
     "manual.components_count": "{n} components",
     "manual.no_adjustable": "All ingredients locked — cannot redistribute",
+    "manual.rebalance_success": "Rebalanced successfully — percentages and indicators updated",
+    "manual.rebalance_failed": "Could not find a feasible solution. Try unlocking some ingredients or adjusting bounds.",
+    "manual.rebalance_running": "Re-calculating ration...",
 
     // ---- ration result ----
     "result.dmi_day": "Dry matter/day",
