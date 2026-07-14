@@ -20,6 +20,8 @@ import {
   GitCompare,
   FileText,
   Layers,
+  BookOpen,
+  ArrowRight,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -75,6 +77,10 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
             <button onClick={() => scrollTo("features")} className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
               {t("landing.features.eyebrow")}
             </button>
+            <a href="/knowledge" className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+              <BookOpen className="h-3.5 w-3.5" />
+              {lang === "ar" ? "المعرفة" : "Knowledge"}
+            </a>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -110,6 +116,10 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
               <button onClick={() => scrollTo("features")} className="rounded-lg px-3 py-2 text-right text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">
                 {t("landing.features.eyebrow")}
               </button>
+              <a href="/knowledge" className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-right text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">
+                <BookOpen className="h-4 w-4" />
+                {lang === "ar" ? "مركز المعرفة" : "Knowledge Center"}
+              </a>
             </nav>
           </div>
         )}
@@ -310,6 +320,69 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
               <FeatureCard icon={GitCompare} title={t("landing.features.f7.t")} desc={t("landing.features.f7.d")} />
               <FeatureCard icon={Share2} title={t("landing.features.f8.t")} desc={t("landing.features.f8.d")} />
               <FeatureCard icon={FileText} title={t("landing.features.f9.t")} desc={t("landing.features.f9.d")} />
+            </div>
+          </div>
+        </section>
+
+        {/* Knowledge Center — prominent section */}
+        <section id="knowledge" className="scroll-mt-16 bg-secondary/30 py-12 sm:py-16">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+            <div className="mb-8 text-center">
+              <Badge className="mb-2 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/10">
+                <BookOpen className="h-3.5 w-3.5" />
+                {lang === "ar" ? "مركز المعرفة" : "Knowledge Center"}
+              </Badge>
+              <h2 className="text-balance text-2xl font-black leading-tight text-foreground sm:text-3xl">
+                {lang === "ar" ? "تعلّم كيف تربي وتغذّي حيواناتك صح" : "Learn to raise and feed your animals right"}
+              </h2>
+              <p className="mx-auto mt-2 max-w-2xl text-balance text-sm text-muted-foreground">
+                {lang === "ar"
+                  ? "مقالات احترافية عن تغذية الأبقار والجاموس والأغنام والدواجن، شرح المواد الخام، نصائح للمربين، وأخطاء شائعة يجب تجنبها."
+                  : "Professional articles on cattle, buffalo, sheep, and poultry nutrition, ingredient guides, farmer tips, and common mistakes to avoid."}
+              </p>
+            </div>
+
+            {/* Article category cards */}
+            <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <a href="/knowledge" className="group rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-2xl">🐄</span>
+                  <span className="text-sm font-bold text-foreground">{lang === "ar" ? "تغذية الأبقار" : "Cattle"}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{lang === "ar" ? "أساسيات ومتطلبات الأبقار الحلوب" : "Dairy cow nutrition basics"}</p>
+              </a>
+              <a href="/knowledge" className="group rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-2xl">🐃</span>
+                  <span className="text-sm font-bold text-foreground">{lang === "ar" ? "تغذية الجاموس" : "Buffalo"}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{lang === "ar" ? "احتياجات الجاموس الحلوب والتسمين" : "Buffalo nutrition guide"}</p>
+              </a>
+              <a href="/knowledge" className="group rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-2xl">🐔</span>
+                  <span className="text-sm font-bold text-foreground">{lang === "ar" ? "تغذية الدواجن" : "Poultry"}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{lang === "ar" ? "تركيب علائق البياض والتسمين" : "Layer & broiler formulation"}</p>
+              </a>
+              <a href="/knowledge" className="group rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-2xl">💡</span>
+                  <span className="text-sm font-bold text-foreground">{lang === "ar" ? "نصائح وأخطاء" : "Tips & Mistakes"}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{lang === "ar" ? "نصائح للمربين وأخطاء شائعة" : "Farmer tips and common mistakes"}</p>
+              </a>
+            </div>
+
+            {/* CTA button */}
+            <div className="flex justify-center">
+              <a href="/knowledge">
+                <Button size="lg" className="gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  {lang === "ar" ? "استكشف مركز المعرفة" : "Browse Articles"}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </a>
             </div>
           </div>
         </section>
