@@ -72,7 +72,7 @@ export function RationResult({
         <CardContent className="flex items-start gap-3 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div>
-            <p className="text-sm font-bold text-foreground">{t("safeResult.infeasible")}</p>
+            <p className="text-sm font-bold text-foreground">{t("result.infeasible")}</p>
             <p className="mt-1 text-xs text-muted-foreground">{safeResult.warnings[0]}</p>
           </div>
         </CardContent>
@@ -90,23 +90,23 @@ export function RationResult({
     <div className="space-y-4">
       {/* Summary stats */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label={t("safeResult.dmi_day")} value={`${fmt(safeResult.dmi)}`} unit={t("common.kg")} />
+        <Stat label={t("result.dmi_day")} value={`${fmt(safeResult.dmi)}`} unit={t("common.kg")} />
         <Stat
-          label={t("safeResult.protein")}
+          label={t("result.protein")}
           value={`${fmt(safeResult.achieved.cp, 1)}%`}
-          unit={t("safeResult.target_ge", { n: fmt(safeResult.targets.cpMin, 0) })}
+          unit={t("result.target_ge", { n: fmt(safeResult.targets.cpMin, 0) })}
           ok={safeResult.achieved.cp >= safeResult.targets.cpMin - 0.3}
         />
         <Stat
-          label={t("safeResult.energy")}
+          label={t("result.energy")}
           value={`${fmt(safeResult.achieved.tdn, 1)}%`}
-          unit={t("safeResult.target_ge", { n: fmt(safeResult.targets.tdnMin, 0) })}
+          unit={t("result.target_ge", { n: fmt(safeResult.targets.tdnMin, 0) })}
           ok={safeResult.achieved.tdn >= safeResult.targets.tdnMin - 0.5}
         />
         <Stat
-          label={t("safeResult.fiber")}
+          label={t("result.fiber")}
           value={`${fmt(safeResult.achieved.fiber, 1)}%`}
-          unit={t("safeResult.max_le", { n: fmt(safeResult.targets.fiberMax, 0) })}
+          unit={t("result.max_le", { n: fmt(safeResult.targets.fiberMax, 0) })}
           ok={safeResult.achieved.fiber <= safeResult.targets.fiberMax + 0.5}
         />
       </div>
@@ -116,7 +116,7 @@ export function RationResult({
         <div className="flex items-center justify-between rounded-xl bg-primary/8 px-4 py-2">
           <span className="flex items-center gap-1.5 text-xs font-bold text-primary">
             <span className="text-base">{flockEmoji}</span>
-            {isBird ? t("safeResult.birds_in_flock") : t("safeResult.heads_in_flock")}
+            {isBird ? t("result.birds_in_flock") : t("result.heads_in_flock")}
           </span>
           <span className="text-lg font-black tabular-nums text-foreground">
             {(safeResult.flockSize ?? 0).toLocaleString(numLocale)}{" "}
@@ -127,8 +127,8 @@ export function RationResult({
       <div className="grid gap-2 sm:grid-cols-3">
         <div className="rounded-xl bg-gradient-to-l from-primary/10 to-transparent p-3 sm:col-span-1">
           <p className="text-[11px] text-muted-foreground">
-            {t("safeResult.cost_daily")}
-            {safeResult.flockSize > 1 ? ` ${t("safeResult.cost_flock")}` : ""}
+            {t("result.cost_daily")}
+            {safeResult.flockSize > 1 ? ` ${t("result.cost_flock")}` : ""}
           </p>
           <p className="text-2xl font-black tabular-nums text-foreground">
             {fmt(safeResult.totalCost)}{" "}
@@ -142,7 +142,7 @@ export function RationResult({
           {safeResult.flockSize > 1 ? (
             <>
               <p className="text-[11px] text-muted-foreground">
-                {isBird ? t("safeResult.cost_per_bird") : t("safeResult.cost_per_head")}
+                {isBird ? t("result.cost_per_bird") : t("result.cost_per_head")}
               </p>
               <p className="text-xl font-black tabular-nums text-foreground">
                 {fmt(safeResult.costPerAnimal)}{" "}
@@ -154,7 +154,7 @@ export function RationResult({
             </>
           ) : (
             <>
-              <p className="text-[11px] text-muted-foreground">{t("safeResult.cost_per_kg")}</p>
+              <p className="text-[11px] text-muted-foreground">{t("result.cost_per_kg")}</p>
               <p className="text-xl font-black tabular-nums text-foreground">
                 {fmt(safeResult.costPerKg)}{" "}
                 <span className="text-xs text-muted-foreground">{t("common.egp")}</span>
@@ -173,7 +173,7 @@ export function RationResult({
               : "border-border/60 bg-card"
           )}
         >
-          <p className="text-[11px] text-muted-foreground">{t("safeResult.savings")}</p>
+          <p className="text-[11px] text-muted-foreground">{t("result.savings")}</p>
           {savings && savings.amount > 0 ? (
             <>
               <p className="text-xl font-black tabular-nums text-accent-foreground">
@@ -181,7 +181,7 @@ export function RationResult({
                 {fmt(savings.amount)} {t("common.egp")}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {t("safeResult.savings_sub", { n: fmt(savings.pct, 0) })}
+                {t("result.savings_sub", { n: fmt(savings.pct, 0) })}
               </p>
             </>
           ) : (
@@ -205,7 +205,7 @@ export function RationResult({
       {/* Components + chart */}
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
-          <p className="mb-2 text-sm font-bold text-foreground/80">{t("safeResult.components_title")}</p>
+          <p className="mb-2 text-sm font-bold text-foreground/80">{t("result.components_title")}</p>
           <div className={cn("space-y-2", !compact && "max-h-80 overflow-y-auto scroll-aleeqa pe-1")}>
             {safeResult.components.map((c) => {
               const ingName = lang === "ar" ? c.ingredient.name : c.ingredient.nameEn;
@@ -257,7 +257,7 @@ export function RationResult({
         </div>
 
         <div className="lg:col-span-2">
-          <p className="mb-2 text-sm font-bold text-foreground/80">{t("safeResult.chart_title")}</p>
+          <p className="mb-2 text-sm font-bold text-foreground/80">{t("result.chart_title")}</p>
           <div className="flex h-full min-h-[220px] flex-col items-center justify-center rounded-lg border border-border/60 bg-secondary/30 p-3">
             <ResponsiveContainer width="100%" height={170}>
               <PieChart>

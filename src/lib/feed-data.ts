@@ -298,8 +298,8 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد رؤوس القطيع",
     flockLabelEn: "Herd size",
     dmi: (w) => +(0.028 * w).toFixed(2),
-    // NRC fattening buffalo: CP 11-13%, TDN 65-70%, fiber ~20-24%
-    targets: { cpMin: 12.5, tdnMin: 67, fiberMax: 22 },
+    // NRC fattening buffalo: CP 11-13%, TDN 65-70%, fiber ~15-20%
+    targets: { cpMin: 12.5, tdnMin: 67, fiberMax: 20 },
     bounds: {
       corn: { lb: 25, ub: 55 },
       barley: { lb: 0, ub: 30 },
@@ -320,7 +320,7 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
       vitamins: { lb: 0.1, ub: 0.3 },
       toxin_binder: { lb: 0.1, ub: 0.3 },
     },
-    forageMin: 30,
+    forageMin: 12,
     description: "جاموس تسمين وزن ٤٠٠ كجم بمعدل نمو حوالي ١ كجم/يوم. يحتاج عاليقة عالية الطاقة لدعم النمو.",
     descriptionEn: "A 400 kg fattening buffalo with about 1 kg/day growth. Needs a high-energy ration to support growth.",
   },
@@ -355,8 +355,8 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد رؤوس القطيع",
     flockLabelEn: "Flock size",
     dmi: (w) => +(0.04 * w).toFixed(2),
-    // NRC fattening sheep: CP 12-14%, TDN 64-68%, fiber ~18-22%
-    targets: { cpMin: 13.5, tdnMin: 66, fiberMax: 20 },
+    // NRC fattening sheep: CP 12-14%, TDN 64-68%, fiber ~20-25%
+    targets: { cpMin: 13.5, tdnMin: 66, fiberMax: 23 },
     bounds: {
       corn: { lb: 30, ub: 60 },
       barley: { lb: 0, ub: 35 },
@@ -419,8 +419,8 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
       bran: { lb: 2, ub: 10 },
       molasses: { lb: 0, ub: 5 },
       soybean44: { lb: 15, ub: 28 },
-      soybean46: { lb: 14, ub: 26 },
-      cottonseed: { lb: 0, ub: 8 },
+      soybean46: { lb: 0, ub: 26 },
+      cottonseed: { lb: 0, ub: 5 },
       sunflower: { lb: 0, ub: 8 },
       fava_bean: { lb: 0, ub: 10 },
       limestone: { lb: 3, ub: 8 },
@@ -464,8 +464,8 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockUnitEn: "bird",
     flockLabel: "عدد الطيور في القطيع",
     flockLabelEn: "Flock size",
-    // Broiler intake grows with weight; ~5% of body weight early, tapering.
-    dmi: (w) => +Math.max(0.025, 0.05 * w - 0.01 * Math.max(0, w - 1) ** 2).toFixed(3),
+    // Broiler intake grows with weight; ~10% of body weight early, tapering.
+    dmi: (w) => +Math.max(0.05, 0.10 * w - 0.02 * Math.max(0, w - 1) ** 2).toFixed(3),
     // NRC broiler finisher: CP 19-21%, ME 3000-3200 kcal/kg, fiber max 5%
     targets: { cpMin: 20, tdnMin: 71, fiberMax: 5 },
     bounds: {
@@ -475,7 +475,7 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
       bran: { lb: 0, ub: 5 },
       molasses: { lb: 0, ub: 3 },
       soybean44: { lb: 22, ub: 35 },
-      soybean46: { lb: 20, ub: 33 },
+      soybean46: { lb: 0, ub: 33 },
       cottonseed: { lb: 0, ub: 5 },
       sunflower: { lb: 0, ub: 5 },
       fava_bean: { lb: 0, ub: 8 },
@@ -520,8 +520,8 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد رؤوس القطيع",
     flockLabelEn: "Herd size",
     dmi: (w, p) => +(0.028 * w + 0.3 * p).toFixed(2),
-    // NRC dairy buffalo: CP 13-14%, TDN 64-67%, fiber ~22-26%
-    targets: { cpMin: 13.5, tdnMin: 65, fiberMax: 25 },
+    // NRC dairy buffalo: CP 14-15% (buffalo milk richer than cow), TDN 64-67%, fiber ~22-26%
+    targets: { cpMin: 14.5, tdnMin: 65, fiberMax: 25 },
     bounds: {
       corn: { lb: 18, ub: 48 },
       barley: { lb: 0, ub: 25 },
@@ -586,7 +586,7 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
       bran: { lb: 0, ub: 15 },
       molasses: { lb: 0, ub: 6 },
       soybean44: { lb: 10, ub: 30 },
-      soybean46: { lb: 8, ub: 28 },
+      soybean46: { lb: 0, ub: 28 },
       cottonseed: { lb: 0, ub: 12 },
       sunflower: { lb: 0, ub: 10 },
       fava_bean: { lb: 0, ub: 12 },
@@ -633,8 +633,8 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد الطيور في القطيع",
     flockLabelEn: "Flock size",
     dmi: () => 0.13,
-    // NRC layer breeder: CP 16-18%, ME 2700-2850, fiber max 6%, Ca 3-4%
-    targets: { cpMin: 17, tdnMin: 68, fiberMax: 6 },
+    // NRC layer breeder: CP 15-16% (less than layer to control egg size), ME 2700-2850, fiber max 6%, Ca 3-4%
+    targets: { cpMin: 16, tdnMin: 68, fiberMax: 6 },
     bounds: {
       corn: { lb: 52, ub: 66 },
       barley: { lb: 0, ub: 12 },
@@ -642,8 +642,8 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
       bran: { lb: 2, ub: 8 },
       molasses: { lb: 0, ub: 4 },
       soybean44: { lb: 14, ub: 26 },
-      soybean46: { lb: 12, ub: 24 },
-      cottonseed: { lb: 0, ub: 6 },
+      soybean46: { lb: 0, ub: 24 },
+      cottonseed: { lb: 0, ub: 3 },
       sunflower: { lb: 0, ub: 6 },
       fava_bean: { lb: 0, ub: 8 },
       limestone: { lb: 3, ub: 8 },
@@ -686,7 +686,7 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockUnitEn: "bird",
     flockLabel: "عدد الطيور في القطيع",
     flockLabelEn: "Flock size",
-    dmi: (w) => +(0.06 * w).toFixed(2),
+    dmi: (w) => +(0.08 * w).toFixed(2),
     // NRC broiler starter: CP 22-24%, ME 3000-3100, fiber max 4%
     targets: { cpMin: 23, tdnMin: 72, fiberMax: 4 },
     bounds: {
@@ -695,7 +695,7 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
       sorghum: { lb: 0, ub: 12 },
       bran: { lb: 0, ub: 3 },
       soybean44: { lb: 28, ub: 38 },
-      soybean46: { lb: 26, ub: 36 },
+      soybean46: { lb: 0, ub: 36 },
       cottonseed: { lb: 0, ub: 3 },
       sunflower: { lb: 0, ub: 3 },
       fava_bean: { lb: 0, ub: 6 },

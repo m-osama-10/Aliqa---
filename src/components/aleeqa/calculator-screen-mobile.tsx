@@ -887,17 +887,6 @@ export function CalculatorScreenMobile() {
               <><Sparkles className="h-3 w-3" /> {t("calc.lp_badge")}</>
             )}
           </Badge>
-          <div className="ms-auto flex gap-1.5">
-            {!manualMode ? (
-              <Button onClick={enableManual} variant="outline" size="sm" className="gap-1.5">
-                <SlidersHorizontal className="h-3.5 w-3.5" /> {t("calc.edit_btn")}
-              </Button>
-            ) : (
-              <Button onClick={disableManual} variant="outline" size="sm" className="gap-1.5">
-                <RotateCcw className="h-3.5 w-3.5" /> {t("calc.reset_auto")}
-              </Button>
-            )}
-          </div>
         </div>
 
         {manualMode ? (
@@ -930,6 +919,7 @@ export function CalculatorScreenMobile() {
             }}
           />
         ) : (
+          <>
           <RationResult
             result={displayResult}
             animalName={lang === "ar" ? animal.name : animal.nameEn}
@@ -941,6 +931,13 @@ export function CalculatorScreenMobile() {
             flockUnit={lang === "ar" ? animal.flockUnit : animal.flockUnitEn}
             flockEmoji={animal.emoji}
           />
+          {/* Edit manually button — moved below the result components */}
+          <div className="mt-3 flex justify-center">
+            <Button onClick={enableManual} variant="outline" size="sm" className="gap-1.5">
+              <SlidersHorizontal className="h-3.5 w-3.5" /> {t("calc.edit_btn")}
+            </Button>
+          </div>
+          </>
         )}
 
         <div className="mt-3 flex flex-wrap gap-2">

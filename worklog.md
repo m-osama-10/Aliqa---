@@ -238,3 +238,337 @@ Stage Summary:
 - Toast feedback: success message on feasible, clear error message on infeasible
 - Works in all 4 scenarios: no locks, 1 lock, multiple locks, manual edit + rebalance
 - Production Ready ✓
+
+---
+Task ID: 2
+Agent: nutrition-reviewer
+Task: Review animal nutritional targets for consistency
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand prior context (Tasks 1-13 by main agent: built Alieqa app, fixed FormulationResult lifecycle, added tests, fixed Smart Rebalance button).
+- Read /home/z/my-project/src/lib/feed-data.ts completely (827 lines): identified 9 animal profiles (dairy_cow, dairy_buffalo, buffalo, calf, sheep, layer, layer_breeder, broiler, broiler_starter) each with targets/bounds/forageMin/dmi.
+- Read /home/z/my-project/src/lib/ingredient-db.ts (122 lines): confirmed the actual formulation ingredient DB (22 ingredients: corn, barley, sorghum, bran, rice_bran, molasses, soybean44, soybean46, cottonseed, sunflower, linseed, fava_bean, peanut, hay, corn_silage, straw, limestone, bicarb, salt, mineral_mix, vitamins, toxin_binder).
+- Confirmed via Grep on feed-lp.ts that the legacy `INGREDIENTS` record (6 ingredients) in feed-data.ts is imported but NEVER referenced in the formulation engine — actual ingredient lookup uses `DEFAULT_INGREDIENTS` from ingredient-db.ts. (Dead imports in feed-lp.ts:201, ration-report.ts:3, storage.ts:5.)
+- Confirmed via Grep on feed-lp.ts (lines 395-416, 609-616) that `forageMin` enforces the sum of (hay + straw + corn_silage) >= forageMin for ruminants. So forageMin is total roughage, not just long-stem hay.
+- Verified ingredient-bound feasibility numerically with Python: summed minimum bounds (lb) per animal across all ingredients in its `bounds` dict. Found broiler_starter sum_lb=103.40% (mathematically infeasible since corn_lb=48 + soybean44_lb=28 + soybean46_lb=26 = 102% before any other ingredient).
+- Verified broiler DMI formula numerically vs Ross 308 / NRC reference intake: formula returns ~50-56% of actual broiler intake across the 0.45-3.0 kg weight range (e.g., 1.5 kg finisher: formula=73 g/day vs NRC=130 g/day — 56% of actual).
+- Verified broiler_starter DMI=0.06*w vs NRC: returns 55-72% of actual intake across 0.15-1.2 kg range.
+- Compared each animal's targets against NRC ranges supplied in the task brief (and standard NRC 2001 dairy, NRC 1994 poultry, NRC 2007 small ruminants).
+- Compiled findings table (current vs recommended) and prioritized issue list.
+- Did NOT modify any code — review-only as instructed.
+
+Stage Summary:
+- All 9 profiles reviewed. Targets are mostly within NRC ranges, but 1 critical bug (infeasible LP for broiler_starter), 4 high-severity scientific errors, 5 medium-severity deviations, and 3 low-severity consistency issues were flagged.
+- Critical: broiler_starter `bounds` is INFEASIBLE — sum of minimum bounds = 103.4% > 100% (corn 48 + soybean44 28 + soybean46 26 = 102% alone). LP solver will always return infeasible in auto-select mode.
+- High: dairy_buffalo CP=13.5 (lower than dairy_cow=15, should be 14-15); layer_breeder CP=17 (above NRC 15-16 and higher than layer 16.5 — should be lower, not higher); broiler dmi() underestimates intake ~45-50% across weight range; broiler_starter dmi()=0.06*w underestimates ~30-40%.
+- Medium: buffalo fattening forageMin=30 (too high for finishing, should be 10-15); sheep fiberMax=20 (low end, NRC allows 22-25); buffalo fattening fiberMax=22 (above NRC max 20); layer cottonseed ub=8% (gossypol risk, should be ≤5); layer_breeder cottonseed ub=6% (hatchability risk, should be ≤3).
+- Low: redundant soybean44+soybean46 lower bounds in 5 profiles (calf, layer, layer_breeder, broiler, broiler_starter) — nutritionally redundant; dead `INGREDIENTS` legacy record imported but unused in 3 files; dairy_cow TDN=65 at low end for 20L production (could be 67-68).
+- Confirmed CORRECT: dairy_cow forageMin=40 (NRC recommends 35-50% forage DM for lactating cows — NOT 10-15% as task brief suggested; that range is inadequate for rumen health); poultry forageMin=0 ✓; layer CP/TDN/fiber ✓; broiler CP/TDN/fiber ✓; broiler_starter CP/TDN/fiber ✓; ruminant DMI functions reasonable; layer DMI=0.115 kg/d ✓; salt 0.2-1% ✓; limestone 3-8% for layers ✓; mineral/vitamin/toxin_binder bounds ✓.
+
+Stage Summary (Detailed Tables):
+
+=== TARGETS COMPARISON (current vs NRC) ===
+
+| Animal | cpMin cur | cpMin NRC | tdnMin cur | tdnMin NRC | fiberMax cur | fiberMax NRC | Verdict |
+|--------|----------:|----------:|-----------:|-----------:|-------------:|-------------:|---------|
+| dairy_cow (500kg,20L) | 15.0 | 14-16 | 65 | 65-70 | 24 | 17-24 | OK (TDN low end) |
+| dairy_buffalo (450kg,12L) | 13.5 | 14-15 | 65 | 64-67 | 25 | 22-26 | CP LOW |
+| buffalo fattening (400kg) | 12.5 | 11-13 | 67 | 65-70 | 22 | 15-20 | fiber HIGH |
+| calf fattening (200kg) | 15.0 | 14-16 | 68 | 67-70 | 18 | 15-18 | OK |
+| sheep fattening (50kg) | 13.5 | 12-15 | 66 | 60-65 | 20 | 20-25 | fiber LOW |
+| layer (2kg,90%) | 16.5 | 16-17 | 67 | 66-68 | 6 | <6 | OK |
+| layer_breeder (2.5kg) | 17.0 | 15-16 | 68 | 65-68 | 6 | <6 | CP HIGH |
+| broiler finisher (1.5kg) | 20.0 | 18-22 | 71 | 70-72 | 5 | <5 | OK |
+| broiler_starter (0.5kg) | 23.0 | 22-24 | 72 | 71-73 | 4 | <4 | OK |
+
+=== DMI FUNCTION VALIDATION ===
+
+| Animal | Formula | Sample value | NRC reference | Verdict |
+|--------|---------|-------------:|--------------:|---------|
+| dairy_cow | 0.025*w+0.35*p | 19.5 kg/d (500kg,20L) | 18-22 kg DM/d | OK |
+| dairy_buffalo | 0.028*w+0.3*p | 16.2 kg/d (450kg,12L) | 14-17 kg/d | OK |
+| buffalo fattening | 0.028*w | 11.2 kg/d (400kg) | 10-12 kg/d | OK |
+| calf fattening | 0.032*w | 6.4 kg/d (200kg) | 6-7 kg/d | OK |
+| sheep fattening | 0.04*w | 2.0 kg/d (50kg) | 1.8-2.2 kg/d | OK |
+| layer | constant 0.115 kg | 115 g/d | 110-130 g/d | OK |
+| layer_breeder | constant 0.13 kg | 130 g/d | 120-150 g/d | OK |
+| broiler finisher | max(0.025,0.05w-0.01(w-1)^2) | 73 g/d (1.5kg) | ~130 g/d | LOW ~56% |
+| broiler_starter | 0.06*w | 30 g/d (0.5kg) | ~55 g/d | LOW ~55% |
+
+=== forageMin VALIDATION (hay+straw+corn_silage) ===
+
+| Animal | forageMin | NRC | Verdict |
+|--------|----------:|-----|---------|
+| dairy_cow | 40 | 35-50% forage DM (lactating cow) | OK |
+| dairy_buffalo | 40 | 35-50% | OK |
+| buffalo fattening | 30 | 5-15% feedlot finishing, 25-40% growing | HIGH for finishing |
+| calf fattening | 15 | 15-25% growing ration | OK |
+| sheep fattening | 20 | 15-25% | OK |
+| layer / layer_breeder / broiler / broiler_starter | 0 | 0% (poultry) | OK |
+
+=== INGREDIENT BOUND FEASIBILITY (sum of all lb in bounds dict) ===
+
+| Animal | sum_lb | Verdict |
+|--------|-------:|---------|
+| broiler_starter | 103.40% | INFEASIBLE — LP always fails in auto-select mode |
+| broiler | 93.40% | TIGHT but feasible |
+| layer | 84.95% | OK (tight) |
+| layer_breeder | 83.95% | OK (tight) |
+| sheep | 41.30% | OK |
+| calf | 54.30% | OK |
+| dairy_cow | 36.50% | OK |
+| dairy_buffalo | 32.50% | OK |
+| buffalo | 31.30% | OK |
+
+=== RECOMMENDED CORRECTIONS (exact numbers) ===
+
+[CRITICAL — production bug]
+1. broiler_starter `bounds` (lines 692-708): make soybean44 OR soybean46 mutually-exclusive (lb=0 on one).
+   - soybean44: { lb: 28, ub: 38 } → { lb: 0, ub: 38 }  (or lb: 25 instead of 28)
+   - soybean46: { lb: 26, ub: 36 } → { lb: 0, ub: 36 }  (keep at 0)
+   - corn: { lb: 48, ub: 58 } → keep (corn stays main energy source)
+   - After fix sum_lb ≈ 75.4% (feasible).
+
+[HIGH — scientific correctness]
+2. dairy_buffalo `targets.cpMin` (line 524): 13.5 → 14.5 (match NRC for 450kg buffalo at 12L; aligns with task expectation "similar/slightly higher than dairy_cow").
+3. layer_breeder `targets.cpMin` (line 637): 17 → 16 (NRC breeder CP is 15-16%; breeders need LESS protein than commercial layers to control egg size and hatchability).
+4. broiler `dmi()` (line 468): replace `0.05*w - 0.01*max(0,w-1)^2` with `0.10*w - 0.02*max(0,w-1)^2` (doubles intake to match Ross 308/Cobb 500 reference: 1.5kg→145g vs current 73g; 2.5kg→205g vs current 103g). Update comment on line 467 accordingly.
+5. broiler_starter `dmi()` (line 689): `0.06*w` → `0.08*w` (closer to NRC: 0.5kg→40g vs current 30g; 1.0kg→80g vs current 60g). Or use a step function (e.g., 0.05*w for w<0.3 else 0.08*w).
+
+[MEDIUM — NRC alignment]
+6. buffalo (fattening) `forageMin` (line 323): 30 → 12 (feedlot finishing rations typically 8-15% roughage; 30% is a growing/backgrounding ration).
+7. buffalo (fattening) `fiberMax` (line 302): 22 → 20 (NRC fattening CF max ~20%).
+8. sheep `fiberMax` (line 359): 20 → 23 (NRC sheep finishing CF can go up to 22-25%; 20 is restrictive given Egyptian hay quality).
+9. layer `bounds.cottonseed.ub` (line 423): 8 → 5 (gossypol causes egg yolk discoloration in layers; ≤5% safe limit).
+10. layer_breeder `bounds.cottonseed.ub` (line 646): 6 → 3 (gossypol reduces hatchability; ≤3% for breeders).
+
+[LOW — consistency / cleanliness]
+11. Set soybean46 lb=0 in calf (line 589), layer (line 422), layer_breeder (line 645), broiler (line 478), broiler_starter (line 698) — only ONE soybean meal type should have positive lb (they are interchangeable; the LP can pick the cheaper one).
+12. Remove dead `INGREDIENTS`/`INGREDIENT_ORDER` imports from feed-lp.ts:201-202, ration-report.ts:3, storage.ts:5-6 (unused; the legacy 6-ingredient record at feed-data.ts:36-127 is only used by about-screen.tsx for display).
+13. dairy_cow `targets.tdnMin` (line 242): 65 → 67 (low end of NRC for 20L production; 67 better supports milk yield). Optional.
+
+=== NO CHANGES MADE — REVIEW ONLY ===
+
+---
+Task ID: 1
+Agent: translation-reviewer
+Task: Review all Arabic + English translations
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand prior agent work (Tasks 1-13: app built, FormulationResult normalization complete, ManualEditor redesigned, Smart Rebalance fixed)
+- Read /home/z/my-project/src/lib/i18n.tsx completely (711 lines, 253 AR keys + 253 EN keys)
+- Searched for `lang === "ar"`, `lang === "en"`, `lang==="ar"` patterns across /src (found 100+ matches across 20+ files)
+- Searched for hardcoded Arabic strings in .ts files (found 60+ matches in feed-data.ts, feed-lp.ts, ration-report.ts, ingredient-db.ts, services/calculators.ts, store/auth-store.ts, storage.ts)
+- Grep'd for inline ternary patterns `lang === "ar" ? "X" : "Y"` and `isRtl ? "X" : "Y"` in components
+- Read full content of: manual-editor.tsx, ration-result.tsx (key sections), prices-screen.tsx, ration-report.ts, feed-data.ts (structure), feed-lp.ts (warnings), about-screen.tsx, language-toggle.tsx, calculator-screen-mobile.tsx (key sections)
+- Wrote Python scripts to: (a) verify AR/EN key parity in i18n.tsx and ration-report.ts REPORT_DICT (both have full parity), (b) find keys used in code but undefined in any dictionary, (c) find keys defined but never referenced
+- Verified storage key prefix consistency across the project (aleeqa.* vs alieqa.*)
+- Cross-checked `t("safeResult.X")` calls in ration-result.tsx against dictionary definitions — confirmed critical bug
+
+Stage Summary:
+
+### CRITICAL BUGS (UI broken in BOTH Arabic & English)
+
+**1. ration-result.tsx uses 18 undefined i18n keys — UI shows literal "safeResult.X" text instead of translated labels**
+
+File: `src/components/aleeqa/ration-result.tsx`
+The dictionary in `i18n.tsx` defines `result.*` keys (lines 184-201), but `ration-result.tsx` calls `t("safeResult.X")` — a namespace that doesn't exist in ANY dictionary. The `t()` fallback (`DICT[lang][key] ?? DICT.ar[key] ?? key`) returns the raw key string when missing.
+
+Affected lines (18 instances):
+- Line 75: `t("safeResult.infeasible")` → user sees "safeResult.infeasible" instead of "تعذّر تركيب عليقة بهذه القيود" / "Could not formulate a ration with these constraints"
+- Line 93: `t("safeResult.dmi_day")` → "safeResult.dmi_day" instead of "المادة الجافة/اليوم" / "Dry matter/day"
+- Line 95: `t("safeResult.protein")` → "safeResult.protein" instead of "البروتين الخام" / "Crude protein"
+- Line 97, 103: `t("safeResult.target_ge", {n})` → "safeResult.target_ge" instead of "الهدف ≥ {n}%" / "Target ≥ {n}%"
+- Line 101: `t("safeResult.energy")` → "safeResult.energy" instead of "الطاقة (TDN)" / "Energy (TDN)"
+- Line 107: `t("safeResult.fiber")` → "safeResult.fiber" instead of "الألياف الخام" / "Crude fiber"
+- Line 109: `t("safeResult.max_le", {n})` → "safeResult.max_le" instead of "الأقصى {n}%" / "Max {n}%"
+- Line 119: `t("safeResult.birds_in_flock")` / `t("safeResult.heads_in_flock")` → raw keys
+- Line 130: `t("safeResult.cost_daily")` → raw key
+- Line 131: `t("safeResult.cost_flock")` → raw key
+- Line 145: `t("safeResult.cost_per_bird")` / `t("safeResult.cost_per_head")` → raw keys
+- Line 157: `t("safeResult.cost_per_kg")` → raw key
+- Line 176: `t("safeResult.savings")` → raw key
+- Line 184: `t("safeResult.savings_sub", {n})` → raw key
+- Line 208: `t("safeResult.components_title")` → raw key
+- Line 260: `t("safeResult.chart_title")` → raw key
+
+Fix: change `t("safeResult.X")` → `t("result.X")` in ration-result.tsx (18 instances). The `result.*` keys already exist in i18n.tsx and are currently dead code.
+
+**2. All feed-lp.ts solver warnings are hardcoded Arabic-only — English users see Arabic warnings**
+
+File: `src/lib/feed-lp.ts` (17 warning strings)
+The formulator functions (`formulateRation`, `formulateRationWithLocks`, `computeManualResult`) take NO `lang` parameter. All warnings are written in Arabic literals:
+- Line 291: `النسبة المثبتة (${lockedSum.toFixed(1)}%) تتجاوز 100%. لا يمكن إكمال التركيبة.`
+- Line 324: `البروتين ${achieved.cp.toFixed(1)}% أقل من المطلوب ${cpMin}%. لا توجد خامات قابلة للتعديل.`
+- Line 325: `الطاقة ${achieved.tdn.toFixed(1)}% أقل من المطلوب ${tdnMin}%. لا توجد خامات قابلة للتعديل.`
+- Line 326: `الألياف ${achieved.fiber.toFixed(1)}% أعلى من الحد الأقصى ${fiberMax}%.`
+- Line 352: `لا توجد خامات قابلة للتعديل. التركيبة الحالية هي الأفضل الممكنة.`
+- Line 474: `لا يمكن تحقيق القيم الغذائية المستهدفة بالكامل مع الخامات المثبتة والمتاحة.`
+- Lines 476, 479, 482, 484, 486, 487, 488, 494: similar Arabic-only warnings
+- Line 652: `لا يوجد حل ممكن بهذه القيود. جرّب توسيع الحدود المتاحة أو راجع الأسعار.`
+- Lines 701, 702, 703, 791, 793, 795, 799: more Arabic-only warnings
+
+These warnings are displayed in:
+- manual-editor.tsx (auto-balance warnings panel — line 294)
+- manual-editor.tsx (bottom warnings panel — line 332)
+- ration-result.tsx (warnings section — line 196)
+- ration-report.ts (HTML print report — line 197, rendered directly into HTML)
+
+Fix: add `lang?: Lang` param to all formulator functions, return bilingual warning keys, then translate at display time. Alternative: emit warning codes (e.g. `"warn.protein_low"`) and translate in the UI via a lookup.
+
+**3. ingredient-db.ts CATEGORY_LABELS is Arabic-only — English users see Arabic category headers**
+
+File: `src/lib/ingredient-db.ts` (lines 110-118)
+```ts
+export const CATEGORY_LABELS: Record<IngredientCategory, string> = {
+  energy: "مصادر الطاقة",
+  protein: "مصادر البروتين",
+  fiber: "مصادر الألياف",
+  mineral: "الأملاح المعدنية",
+  vitamin: "الفيتامينات",
+  additive: "إضافات أخرى",
+};
+```
+
+Used in:
+- `manual-editor.tsx` line 478 (CategoryAccordion header — the most visible usage)
+- `prices-screen.tsx` line 102 (sticky category headers)
+- `calculator-screen-mobile.tsx` line 628 (manual ingredient selection category headers)
+
+In English mode, all category headers display Arabic. Fix: add `CATEGORY_LABELS_EN` and switch on lang, OR move category labels into the i18n dictionary.
+
+### MAJOR ISSUES (Hardcoded bilingual strings bypassing i18n)
+
+**4. manual-editor.tsx — 3 hardcoded bilingual strings**
+- Line 275: `{lang === "ar" ? "موازنة تلقائية ذكية" : "Smart Auto-Balance"}`
+- Lines 278-280: `{lang === "ar" ? "ثبّت الخامات🔒 ويعدّل الباقي تلقائياً" : "Lock🔒, auto-adjust rest"}`
+- Line 286: `{lockedKeys.size} {lang === "ar" ? "مثبت" : "locked"}`
+
+Fix: add `manual.auto_balance`, `manual.auto_balance_hint`, `manual.locked_count` i18n keys.
+
+**5. calculator-screen-mobile.tsx — ~25 hardcoded bilingual strings**
+- Lines 352-357: Stepper labels `"الحيوان"/"Animal"`, `"البيانات"/"Data"`, `"المواد"/"Items"`, `"الوضع"/"Mode"`, `"الأسعار"/"Prices"`, `"النتيجة"/"Result"`
+- Lines 423, 566, 695, 786: `"التالي"/"Next"` (4 instances)
+- Lines 563, 687, 783, 854: `"السابق"/"Back"` (4 instances)
+- Line 596: `"تلقائي"/"Automatic"`, line 598: `"النظام يختار الأفضل"/"System picks best"`
+- Line 610: `"يدوي"/"Manual"`, line 612: `"أختار بنفسي"/"I choose"`
+- Line 621: `"اختر المواد المتوفرة لديك. سيتم استخدامها فقط في الحسابات."/"Select ingredients available to you. Only these will be used."`
+- Line 662: `"اختر مادة واحدة على الأقل"/"Select at least one ingredient"`
+- Line 666: `"المختار: ${n} مادة"/"Selected: ${n} items"`
+- Line 675: `"النظام سيستخدم جميع المواد المناسبة تلقائياً"/"System will use all suitable ingredients automatically"`
+- Line 678: `"${n} مادة متاحة"/"${n} ingredients available"`
+- Lines 824: `"بروتين"/"CP"`, `"طاقة"/"TDN"` (CP/TDN abbrev labels)
+- Line 840: `"ج/كجم"/"EGP/kg"`
+- Line 273: `"يدوية"/"manual"` (suffix)
+- Line 541: `"حتى ${fmt(animal.flockMax, 0)} ${animal.flockUnit} (اكتب الرقم مباشرة)"/"Up to ${...} ${...} (type the number directly)"`
+
+**6. calculator-screen.tsx — duplicates of mobile screen (~20 hardcoded bilingual strings)**
+Same issues as mobile screen: "تلقائي"/"Automatic", "يدوي"/"Manual", "النظام يختار الأفضل"/"System picks best", "أختار بنفسي"/"I choose", "المختار: ${n} مادة"/"Selected: ${n} items", "${n} مادة متاحة — سيتم استخدامها تلقائياً"/"${n} ingredients available — all will be used", "بروتين"/"CP", "طاقة"/"TDN", "ج/كجم"/"EGP/kg", "يدوية"/"manual", "اختيار المواد الخام"/"Select Ingredients", "حتى ${...} (اكتب الرقم مباشرة)"/"Up to ${...} (type the number directly)"
+
+**7. prices-screen.tsx — ~25 hardcoded bilingual strings, completely bypasses prices.* i18n keys**
+- Line 52: `"إعادة كل القيم للافتراضية؟"/"Reset all to defaults?"` (confirm dialog)
+- Line 66: `"قاعدة بيانات المواد الخام"/"Ingredient Database"`
+- Line 71: `"إعادة ضبط"/"Reset"`
+- Lines 75-77: `"اضغط على أي مادة لتعديل القيم الغذائية والسعر. التغييرات تُحفظ وتُستخدم فوراً في الحسابات."/"Tap any ingredient to edit nutrition values and price. Changes are saved and used instantly."`
+- Line 88: `"بحث..."/"Search..."`
+- Lines 124-126: `"💡 جميع القيم قابلة للتعديل وتُحفظ على جهازك"/"💡 All values are editable and stored locally"`
+- Lines 166-168: `"بروتين"/"CP"`, `"طاقة"/"TDN"`, `"ألياف"/"CF"`
+- Line 173: `"ج/كجم"/"EGP/kg"`
+- Line 188: `"تعديل القيم الغذائية"/"Edit Nutrition Values"`
+- Lines 193, 202, 208, 214, 220, 226, 232, 238, 244, 250: 10x EditField labels (price, CP, TDN, CF, EE, Ca, P, DM, min usage, max usage) — all hardcoded bilingual
+
+The `prices.*` keys in i18n.tsx (8 keys: title, subtitle_count, subtitle_none, default_hint, note, invalid, saved, reset_done) are NEVER USED — dead code.
+
+**8. about-screen.tsx — hardcoded team/targets text**
+- Line 92: `{lang === "ar" ? "فريق العمل" : "Our Team"}`
+- Lines 96-99: `{lang === "ar" ? "خريجو كلية الزراعة — جامعة أسيوط ٢٠١٨م" : "Faculty of Agriculture graduates — Assiut University 2018"}`
+- Lines 234-236: ~400-character hardcoded targets summary for 9 animal types — both AR and EN versions inline as a ternary
+
+**9. rations-screen.tsx — hardcoded dialog description**
+- Lines 325-327: `{lang === "ar" ? "تفاصيل العليقة المحفوظة — يمكنك مشاركتها أو طباعتها." : "Saved ration details — you can share or print it."}`
+- Lines 129, 237, 332: `"رأس"/"head"` hardcoded fallback unit (also appears as default `flockUnit = "رأس"` in ration-result.tsx:51, 412)
+
+**10. Arabic-only strings shown in English mode**
+- `AdSection placement="in-feed" label="إعلان"` used 7 times across components (landing-screen.tsx:163,246,279; prices-screen.tsx:129; calculator-screen.tsx:716; calculator-screen-mobile.tsx:877; rations-screen.tsx:373; about-screen.tsx:249) — "إعلان" is Arabic-only, no EN translation
+- `ad-banner.tsx:69`: `{isRtl ? "إعلان" : "SPONSORED"}` — bypasses i18n
+- `ad-slot.tsx:109`: `label = "إعلان"` (Arabic-only default prop)
+- `ration-result.tsx:163`: `{lang === "ar" ? "طن" : "ton"}` — hardcoded unit
+- `ration-result.tsx:51, 412`: `flockUnit = "رأس"` (Arabic-only default)
+
+**11. language-toggle.tsx — hardcoded aria-label + title**
+- Line 16: `aria-label="Toggle language"` (English-only, not localized)
+- Line 17: `title={lang === "ar" ? "Switch to English" : "التبديل للعربية"}` (hardcoded bilingual)
+
+**12. profile-screen.tsx — extensive use of `isRtl ? "X" : "Y"` pattern**
+- Line 69: `"ضيف"/"Guest"` — should use t("common.guest")
+- Line 73: `"وضع الضيف"/"Guest mode"`
+- Line 86: `"لوحة التحكم"/"Admin Dashboard"` — should use t("nav.admin")
+- And many more (auth prompts, settings labels, feedback forms) — entire screen bypasses i18n system
+
+**13. auth-screen.tsx — similar `isRtl` ternary pattern** (10+ matches at lines 53+)
+
+**14. app-shell.tsx — `AuthPrompt` component hardcodes bilingual strings**
+- Line 253: `"سجّل الدخول"/"Sign In"` — should use t("common.signin")
+- Lines 257-258: `"سجّل الدخول للوصول إلى المفضلة والسجل والإشعارات"/"Sign in to access favorites, history, and notifications"`
+
+### STORAGE KEY INCONSISTENCY (Medium — affects data continuity)
+
+**15. Two storage key prefixes coexist: `aleeqa.*` vs `alieqa.*`**
+The brand is "عليقة" / "Aleeqa" (per `common.app_name` EN value). The canonical spelling is "aleeqa", but ~6 files use the typo "alieqa":
+- `aleeqa.*` (correct): i18n.tsx (lang), storage.ts (prices/profiles/rations), page.tsx (entered flag)
+- `alieqa.*` (TYPO): ingredient-db.ts (STORAGE_KEY = "alieqa.ingredients.v2"), pwa-install-prompt.tsx, page.tsx (version key + cleanup loop), auth-store.ts, app-store.ts, offline/cache.ts (prefix + pending key), supabase/client.ts (auth token key)
+
+The `page.tsx` lines 22-26 have a cleanup loop that deletes `alieqa.*` keys on version mismatch, but new code still writes to `alieqa.*` keys in ingredient-db.ts, auth-store.ts, app-store.ts, etc. — so user data (custom ingredients, auth session, app preferences) may be wiped unexpectedly on version upgrades.
+
+Also: `services/settings.ts` uses `alieqa.app` for the domain (e.g. `https://alieqa.app/privacy`) but `ration-report.ts:58,103` uses `www.aleeqa.app`. Inconsistent brand URLs.
+
+### DEAD CODE (Low priority)
+
+**16. i18n.tsx contains 18 unused `result.*` keys** (lines 184-201) — defined but never referenced because ration-result.tsx incorrectly uses `safeResult.*` namespace. These are the "correct" keys; the bug is in ration-result.tsx, not the dictionary.
+
+**17. i18n.tsx contains 8 unused `prices.*` keys** (lines 204-212) — defined but never referenced because prices-screen.tsx uses inline ternaries instead.
+
+**18. i18n.tsx contains 5 unused `data.*` keys** (lines 290-294) — defined but never referenced.
+
+**19. Other unused keys**: `common.close`, `common.delete`, `common.guest`, `common.reset`, `common.synced`, `nav.admin`, `manual.no_adjustable`, `manual.rebalance_running`, `manual.target_deviation`, `calc.production`.
+
+**20. ration-report.ts has a complete duplicate REPORT_DICT (42 keys)** that mirrors `report.*` keys in i18n.tsx. This duplication is intentional (ration-report is a plain TS function outside React tree), but any update must be made in BOTH places — risky maintenance burden.
+
+### TRANSLATION QUALITY (Minor — register inconsistency)
+
+**21. Mixing Egyptian colloquial with Modern Standard Arabic (MSA)** in i18n.tsx:
+- Line 69 `"landing.hero.why_btn": "ليه أستخدم التطبيق؟"` — colloquial "ليه" (why)
+- Line 75 `"landing.why.title": "...يستاهل أداة"` — colloquial "يستاهل" (deserves); MSA: "يستحق"
+- Line 84 `"landing.why.b2.d": "...ويوريك التوفير..."` — colloquial "يوريك" (shows you); MSA: "ويعرض لك"
+- Line 87 `"landing.why.b3.d": "...في المناطق اللي شبكتها ضعيفة"` — colloquial "اللي شبكتها" (whose network); very informal
+- Line 93 `"landing.why.b5.d": "ابعت التركيبة... لرجوع ليها بعدين"` — colloquial "ابعت" (send), "ليها" (to it), "بعدين" (later)
+- Line 96 `"landing.why.b6.d": "مفيش تسجيل ولا حسابات"` — colloquial "مفيش" (there is no)
+- Line 124 `"landing.cta.desc": "ادخل الحاسبة دلوقتي"` — colloquial "دلوقتي" (now); elsewhere the dictionary uses "الآن" (more formal)
+
+The colloquial tone is intentional for the Egyptian farmer target audience, but the dictionary is INCONSISTENT — some strings use MSA, others colloquial. Pick one register (recommend Egyptian colloquial throughout, given the brand positioning).
+
+**22. EN mistranslation**: `i18n.tsx:362` `"landing.hero.desc"` ends with "Ready to ship in phases." — "ship" is tech jargon inappropriate for farmers. Better: "Ready to be implemented in phases" or "Ready to roll out in phases".
+
+**23. AR inconsistency**: `i18n.tsx:158` `"calc.disclaimer"` uses "تغيير مفاجئ" while `i18n.tsx:258` `"about.disclaimer"` uses "تغيّر مفاجئ" (same concept, different spellings). Pick one.
+
+### NEXT ACTIONS (priority order)
+
+1. **CRITICAL FIX**: Replace all 18 `t("safeResult.X")` → `t("result.X")` in ration-result.tsx. This unblocks the ration result UI in both languages.
+2. **CRITICAL FIX**: Add `lang?: Lang` parameter to formulateRation / formulateRationWithLocks / computeManualResult in feed-lp.ts; emit warning codes instead of Arabic strings; translate at display time. (Affects 17 warnings + cascades to manual-editor.tsx, ration-result.tsx, ration-report.ts)
+3. **MAJOR FIX**: Add `CATEGORY_LABELS_EN` (or move to i18n) in ingredient-db.ts; update consumers to switch on lang.
+4. **MAJOR FIX**: Migrate hardcoded bilingual strings in prices-screen.tsx to use the existing (currently dead) `prices.*` i18n keys; add new keys for nutrition field labels (CP, TDN, CF, EE, Ca, P, DM, min/max usage).
+5. **MAJOR FIX**: Add i18n keys for calculator step labels ("الحيوان"/"Animal", "البيانات"/"Data", etc.), nav buttons ("التالي"/"Next", "السابق"/"Back"), selection mode ("تلقائي"/"Automatic", "يدوي"/"Manual", "النظام يختار الأفضل"/"System picks best", "أختار بنفسي"/"I choose"), and ingredient selection helpers.
+6. **MAJOR FIX**: Add i18n keys for `manual.auto_balance`, `manual.auto_balance_hint`, `manual.locked_count` (manual-editor.tsx).
+7. **MEDIUM FIX**: Migrate all `label="إعلان"` and `aria-label="إعلان"` to i18n (e.g. `common.ad` = "إعلان"/"Ad" or "Sponsored"). Add `common.ton` = "طن"/"ton".
+8. **MEDIUM FIX**: Standardize storage key prefix. Pick ONE ("aleeqa" recommended — matches EN brand name) and migrate all `alieqa.*` references. Update page.tsx cleanup loop accordingly.
+9. **MEDIUM FIX**: Add i18n keys for profile-screen.tsx (guest mode labels, admin dashboard button, auth prompt) and auth-screen.tsx.
+10. **LOW**: Remove dead `prices.*` keys from i18n.tsx AFTER migrating prices-screen.tsx to use them. Remove the duplicate REPORT_DICT in ration-report.ts (import from i18n.tsx instead, or vice versa).
+11. **LOW**: Decide on a single Arabic register (Egyptian colloquial OR MSA) and apply consistently.
+12. **LOW**: Fix `"landing.hero.desc"` EN ("ship" → "implemented"/"rolled out").
+
+### KEY PARITY STATUS
+
+- i18n.tsx AR ↔ EN: ✅ full parity (253 keys each, no missing translations either direction)
+- ration-report.ts REPORT_DICT AR ↔ EN: ✅ full parity (42 keys each)
+- Components → Dictionary: ❌ 18 keys used in ration-result.tsx point to non-existent `safeResult.*` namespace (CRITICAL)
+- Dictionary → Components: ❌ 31 keys defined in i18n.tsx are dead code (`prices.*`, `result.*`, `data.*`, plus a few stray `common.*`/`nav.*`/`manual.*` keys)
