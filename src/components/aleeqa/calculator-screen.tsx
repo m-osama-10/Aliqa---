@@ -743,7 +743,7 @@ export function CalculatorScreen() {
           <ManualEditor
             percents={manualPercents}
             onChange={(k, v) => setManualPercents((p) => ({ ...p, [k]: v }))}
-            onDistribute={(newPercents) => setManualPercents(newPercents)}
+            onDistribute={(updater) => setManualPercents(updater)}
             result={displayResult}
             availableKeys={selectedIngredientObjects.map((ing) => ing.key)}
             ingredients={selectedIngredientObjects}

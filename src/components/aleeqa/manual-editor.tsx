@@ -37,8 +37,14 @@ export interface ManualEditorProps {
   percents: Record<string, number>;
   /** Called with the FULL new percents map (after smart distribution). */
   onChange: (key: string, value: number) => void;
-  /** Called with the full new percents object after distribution. */
-  onDistribute: (newPercents: Record<string, number>) => void;
+  /**
+   * Called with an UPDATER FUNCTION that receives the previous percents
+   * and returns the new percents (after smart distribution).
+   * The parent should apply it as: setManualPercents(prev => updater(prev))
+   * This guarantees the distribution always uses the latest state —
+   * no stale closures during rapid slider drags.
+   */
+  onDistribute: (updater: (prev: Record<string, number>) => Record<string, number>) => void;
   result: FormulationResult;
   availableKeys: string[];
   ingredients: IngredientNutrition[];
@@ -127,22 +133,26 @@ function ManualEditorBase({
   const sumPct = useMemo(() => getSum(percents, availableKeys), [percents, availableKeys]);
   const sumOk = Math.abs(sumPct - 100) <= 0.1;
 
-  // Smart change handler: distribute the delta across non-locked ingredients
+  // Smart change handler: distribute the delta across non-locked ingredients.
+  // KEY FIX: onDistribute receives a FUNCTION (updater) so the parent can
+  // apply it via setManualPercents(prev => updater(prev)). This guarantees
+  // the distribution always uses the LATEST percents — no stale closures
+  // during rapid slider drags where React may not re-render between events.
   const handleChange = useCallback(
     (key: string, rawValue: number) => {
-      // Guard against NaN/Infinity
       const value = Number.isFinite(rawValue) ? rawValue : 0;
-      const newPercents = distributePercentageChange({
-        percents,
-        changedKey: key,
-        newValue: value,
-        lockedKeys,
-        ingredients,
-        availableKeys,
-      });
-      onDistribute(newPercents);
+      onDistribute((prev: Record<string, number>) =>
+        distributePercentageChange({
+          percents: prev,
+          changedKey: key,
+          newValue: value,
+          lockedKeys,
+          ingredients,
+          availableKeys,
+        })
+      );
     },
-    [percents, lockedKeys, ingredients, availableKeys, onDistribute]
+    [lockedKeys, ingredients, availableKeys, onDistribute]
   );
 
   // Group ingredients by category (memoized)
