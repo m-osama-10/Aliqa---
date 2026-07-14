@@ -39,6 +39,7 @@ import {
   INGREDIENT_ORDER,
   type AnimalKey,
   type IngredientKey,
+  normalizeFormulationResult,
 } from "@/lib/feed-data";
 import { useRations, type SavedRation } from "@/lib/storage";
 import { useLang, type Lang } from "@/lib/i18n";
@@ -73,8 +74,8 @@ export function RationsScreen() {
   const [compareIds, setCompareIds] = useState<string[]>([]);
 
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
-  const fmt = (n: number, d = 2) =>
-    n.toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmt = (n: number | undefined | null, d = 2) =>
+    (n ?? 0).toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
 
   /* ----------------------------------------------------------------
    *  Cost-trend groups: rations of the same animalKey with ≥2 entries.
@@ -268,7 +269,7 @@ export function RationsScreen() {
                         {r.flockSize > 1 && (
                           <>
                             <span>·</span>
-                            <span>{r.flockSize.toLocaleString(numLocale)} {flockUnit}</span>
+                            <span>{(r.flockSize ?? 0).toLocaleString(numLocale)} {flockUnit}</span>
                           </>
                         )}
                         <span>·</span>
@@ -387,7 +388,14 @@ interface ComparePanelProps {
 }
 
 function ComparePanel({ pair, t, lang, fmt, onClear }: ComparePanelProps) {
-  const [a, b] = pair;
+  const [aRaw, bRaw] = pair;
+  // Defense-in-depth: normalize both results so achieved/targets/components
+  // are guaranteed present even if a future schema change slips past
+  // migrateRation. migrateRation (storage.ts) already normalizes at load,
+  // so this is a belt-and-suspenders guard for the direct .achieved.cp
+  // accesses below.
+  const a = { ...aRaw, result: normalizeFormulationResult(aRaw.result) };
+  const b = { ...bRaw, result: normalizeFormulationResult(bRaw.result) };
   const animalA = ANIMALS[a.animalKey];
   const animalB = ANIMALS[b.animalKey];
   const cheaperIsA = a.result.totalCost <= b.result.totalCost;
@@ -419,8 +427,8 @@ function ComparePanel({ pair, t, lang, fmt, onClear }: ComparePanelProps) {
         animalA?.species === "poultry" && animalB?.species === "poultry"
           ? t("share.birds")
           : t("share.heads"),
-      a: a.flockSize.toLocaleString(numLocale),
-      b: b.flockSize.toLocaleString(numLocale),
+      a: (a.flockSize ?? 0).toLocaleString(numLocale),
+      b: (b.flockSize ?? 0).toLocaleString(numLocale),
     },
     {
       label: t("share.type"),
@@ -468,11 +476,19 @@ function ComparePanel({ pair, t, lang, fmt, onClear }: ComparePanelProps) {
     },
   ];
 
-  // Component percentage rows (one per ingredient key).
-  const componentRows = INGREDIENT_ORDER.map((key: IngredientKey) => {
-    const ing = INGREDIENTS[key];
+  // Component percentage rows — use all keys present in either ration
+  const allKeys = Array.from(new Set([...Object.keys(compMapA), ...Object.keys(compMapB)]));
+  const componentRows = allKeys.map((key) => {
+    // Find ingredient name from the ration components
+    const compA = a.components.find((c) => c.ingredient.key === key);
+    const compB = b.components.find((c) => c.ingredient.key === key);
+    const label = compA
+      ? (lang === "ar" ? compA.ingredient.name : compA.ingredient.nameEn)
+      : compB
+      ? (lang === "ar" ? compB.ingredient.name : compB.ingredient.nameEn)
+      : key;
     return {
-      label: lang === "ar" ? ing.short : ing.shortEn,
+      label,
       a: `${fmt(compMapA[key] ?? 0, 1)}%`,
       b: `${fmt(compMapB[key] ?? 0, 1)}%`,
     };
@@ -569,8 +585,9 @@ function ComparePanel({ pair, t, lang, fmt, onClear }: ComparePanelProps) {
 
 function buildComponentMap(r: SavedRation): Record<string, number> {
   const map: Record<string, number> = {};
-  for (const c of r.result.components) {
-    map[c.ingredient.key] = c.percent;
+  const comps = r?.result?.components ?? [];
+  for (const c of comps) {
+    if (c?.ingredient?.key !== undefined) map[c.ingredient.key] = c.percent;
   }
   return map;
 }

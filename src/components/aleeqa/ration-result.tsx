@@ -21,7 +21,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { FormulationResult } from "@/lib/feed-data";
-import { ANIMALS } from "@/lib/feed-data";
+import { ANIMALS, normalizeFormulationResult } from "@/lib/feed-data";
 import { useLang, type Lang } from "@/lib/i18n";
 
 interface RationResultProps {
@@ -53,67 +53,73 @@ export function RationResult({
 }: RationResultProps) {
   const { t, lang } = useLang();
   const isBird = flockUnit === "طائر" || flockUnit === "bird";
-  const fmt = (n: number, d = 2) =>
-    n.toLocaleString(lang === "ar" ? "ar-EG" : "en-GB", {
+  const fmt = (n: number | undefined | null, d = 2) =>
+    (n ?? 0).toLocaleString(lang === "ar" ? "ar-EG" : "en-GB", {
       minimumFractionDigits: d,
       maximumFractionDigits: d,
     });
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
 
-  if (!result.feasible) {
+  // Defense-in-depth: normalize via the shared helper so this component is
+  // protected even if a caller bypasses migrateRation (e.g. displayResult
+  // from the formulators is already normalized, but a saved-ration path or a
+  // future code change might not be). This mirrors the guard in ManualEditor.
+  const safeResult = normalizeFormulationResult(result);
+
+  if (!safeResult.feasible) {
     return (
       <Card className="border-destructive/30">
         <CardContent className="flex items-start gap-3 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div>
-            <p className="text-sm font-bold text-foreground">{t("result.infeasible")}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{result.warnings[0]}</p>
+            <p className="text-sm font-bold text-foreground">{t("safeResult.infeasible")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{safeResult.warnings[0]}</p>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  const chartData = result.components.map((c) => ({
-    name: lang === "ar" ? c.ingredient.short : c.ingredient.shortEn,
+  const chartData = safeResult.components.map((c) => ({
+    name: lang === "ar" ? (c.ingredient as any).short || c.ingredient.name : (c.ingredient as any).shortEn || c.ingredient.nameEn,
     value: c.percent,
-    color: c.ingredient.color,
+    color: (c.ingredient as any).color || "#888",
   }));
 
   return (
     <div className="space-y-4">
       {/* Summary stats */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label={t("result.dmi_day")} value={`${fmt(result.dmi)}`} unit={t("common.kg")} />
+        <Stat label={t("safeResult.dmi_day")} value={`${fmt(safeResult.dmi)}`} unit={t("common.kg")} />
         <Stat
-          label={t("result.protein")}
-          value={`${fmt(result.achieved.cp, 1)}%`}
-          unit={t("result.target_ge", { n: fmt(result.targets.cpMin, 0) })}
-          ok={result.achieved.cp >= result.targets.cpMin - 0.3}
+          label={t("safeResult.protein")}
+          value={`${fmt(safeResult.achieved.cp, 1)}%`}
+          unit={t("safeResult.target_ge", { n: fmt(safeResult.targets.cpMin, 0) })}
+          ok={safeResult.achieved.cp >= safeResult.targets.cpMin - 0.3}
         />
         <Stat
-          label={t("result.energy")}
-          value={`${fmt(result.achieved.tdn, 1)}%`}
-          unit={t("result.target_ge", { n: fmt(result.targets.tdnMin, 0) })}
-          ok={result.achieved.tdn >= result.targets.tdnMin - 0.5}
+          label={t("safeResult.energy")}
+          value={`${fmt(safeResult.achieved.tdn, 1)}%`}
+          unit={t("safeResult.target_ge", { n: fmt(safeResult.targets.tdnMin, 0) })}
+          ok={safeResult.achieved.tdn >= safeResult.targets.tdnMin - 0.5}
         />
         <Stat
-          label={t("result.fiber")}
-          value={`${fmt(result.achieved.fiber, 1)}%`}
-          unit={t("result.max_le", { n: fmt(result.targets.fiberMax, 0) })}
-          ok={result.achieved.fiber <= result.targets.fiberMax + 0.5}
+          label={t("safeResult.fiber")}
+          value={`${fmt(safeResult.achieved.fiber, 1)}%`}
+          unit={t("safeResult.max_le", { n: fmt(safeResult.targets.fiberMax, 0) })}
+          ok={safeResult.achieved.fiber <= safeResult.targets.fiberMax + 0.5}
         />
       </div>
 
       {/* Cost + savings */}
-      {result.flockSize > 1 && (
+      {safeResult.flockSize > 1 && (
         <div className="flex items-center justify-between rounded-xl bg-primary/8 px-4 py-2">
           <span className="flex items-center gap-1.5 text-xs font-bold text-primary">
             <span className="text-base">{flockEmoji}</span>
-            {isBird ? t("result.birds_in_flock") : t("result.heads_in_flock")}
+            {isBird ? t("safeResult.birds_in_flock") : t("safeResult.heads_in_flock")}
           </span>
           <span className="text-lg font-black tabular-nums text-foreground">
-            {result.flockSize.toLocaleString(numLocale)}{" "}
+            {(safeResult.flockSize ?? 0).toLocaleString(numLocale)}{" "}
             <span className="text-xs text-muted-foreground">{flockUnit}</span>
           </span>
         </div>
@@ -121,37 +127,40 @@ export function RationResult({
       <div className="grid gap-2 sm:grid-cols-3">
         <div className="rounded-xl bg-gradient-to-l from-primary/10 to-transparent p-3 sm:col-span-1">
           <p className="text-[11px] text-muted-foreground">
-            {t("result.cost_daily")}
-            {result.flockSize > 1 ? ` ${t("result.cost_flock")}` : ""}
+            {t("safeResult.cost_daily")}
+            {safeResult.flockSize > 1 ? ` ${t("safeResult.cost_flock")}` : ""}
           </p>
           <p className="text-2xl font-black tabular-nums text-foreground">
-            {fmt(result.totalCost)}{" "}
+            {fmt(safeResult.totalCost)}{" "}
             <span className="text-xs font-medium text-muted-foreground">{t("common.egp")}</span>
           </p>
           <p className="text-[10px] text-muted-foreground">
-            {fmt(result.costPerMonth)} {t("common.egp")}/{t("common.month")}
+            {fmt(safeResult.costPerMonth)} {t("common.egp")}/{t("common.month")}
           </p>
         </div>
         <div className="rounded-xl border border-border/60 bg-card p-3">
-          {result.flockSize > 1 ? (
+          {safeResult.flockSize > 1 ? (
             <>
               <p className="text-[11px] text-muted-foreground">
-                {isBird ? t("result.cost_per_bird") : t("result.cost_per_head")}
+                {isBird ? t("safeResult.cost_per_bird") : t("safeResult.cost_per_head")}
               </p>
               <p className="text-xl font-black tabular-nums text-foreground">
-                {fmt(result.costPerAnimal)}{" "}
+                {fmt(safeResult.costPerAnimal)}{" "}
                 <span className="text-xs text-muted-foreground">{t("common.egp")}</span>
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {fmt(result.costPerKg)} {t("common.egp")}/{t("common.kg")}
+                {fmt(safeResult.costPerKg)} {t("common.egp")}/{t("common.kg")}
               </p>
             </>
           ) : (
             <>
-              <p className="text-[11px] text-muted-foreground">{t("result.cost_per_kg")}</p>
+              <p className="text-[11px] text-muted-foreground">{t("safeResult.cost_per_kg")}</p>
               <p className="text-xl font-black tabular-nums text-foreground">
-                {fmt(result.costPerKg)}{" "}
+                {fmt(safeResult.costPerKg)}{" "}
                 <span className="text-xs text-muted-foreground">{t("common.egp")}</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {fmt(safeResult.costPerTon)} {t("common.egp")}/{lang === "ar" ? "طن" : "ton"}
               </p>
             </>
           )}
@@ -164,7 +173,7 @@ export function RationResult({
               : "border-border/60 bg-card"
           )}
         >
-          <p className="text-[11px] text-muted-foreground">{t("result.savings")}</p>
+          <p className="text-[11px] text-muted-foreground">{t("safeResult.savings")}</p>
           {savings && savings.amount > 0 ? (
             <>
               <p className="text-xl font-black tabular-nums text-accent-foreground">
@@ -172,7 +181,7 @@ export function RationResult({
                 {fmt(savings.amount)} {t("common.egp")}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {t("result.savings_sub", { n: fmt(savings.pct, 0) })}
+                {t("safeResult.savings_sub", { n: fmt(savings.pct, 0) })}
               </p>
             </>
           ) : (
@@ -182,9 +191,9 @@ export function RationResult({
       </div>
 
       {/* Warnings */}
-      {result.warnings.length > 0 && (
+      {safeResult.warnings.length > 0 && (
         <div className="space-y-1.5 rounded-lg border border-amber-400/40 bg-amber-50/70 p-3">
-          {result.warnings.map((w, i) => (
+          {safeResult.warnings.map((w, i) => (
             <p key={i} className="flex items-start gap-1.5 text-[11px] text-amber-900">
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
               {w}
@@ -196,11 +205,12 @@ export function RationResult({
       {/* Components + chart */}
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
-          <p className="mb-2 text-sm font-bold text-foreground/80">{t("result.components_title")}</p>
+          <p className="mb-2 text-sm font-bold text-foreground/80">{t("safeResult.components_title")}</p>
           <div className={cn("space-y-2", !compact && "max-h-80 overflow-y-auto scroll-aleeqa pe-1")}>
-            {result.components.map((c) => {
-              const Icon = c.ingredient.icon;
+            {safeResult.components.map((c) => {
               const ingName = lang === "ar" ? c.ingredient.name : c.ingredient.nameEn;
+              const emoji = (c.ingredient as any).emoji || "🧪";
+              const color = (c.ingredient as any).color || "#888";
               return (
                 <div
                   key={c.ingredient.key}
@@ -209,10 +219,9 @@ export function RationResult({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span
-                        className="flex h-7 w-7 items-center justify-center rounded-md text-white"
-                        style={{ backgroundColor: c.ingredient.color }}
+                        className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-base"
                       >
-                        <Icon className="h-3.5 w-3.5" />
+                        {emoji}
                       </span>
                       <div>
                         <p className="text-xs font-bold text-foreground">{ingName}</p>
@@ -234,7 +243,7 @@ export function RationResult({
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
                       <div
                         className="h-full rounded-full"
-                        style={{ width: `${c.percent}%`, backgroundColor: c.ingredient.color }}
+                        style={{ width: `${c.percent}%`, backgroundColor: color }}
                       />
                     </div>
                     <span className="w-10 text-left text-[10px] font-bold tabular-nums text-muted-foreground">
@@ -248,7 +257,7 @@ export function RationResult({
         </div>
 
         <div className="lg:col-span-2">
-          <p className="mb-2 text-sm font-bold text-foreground/80">{t("result.chart_title")}</p>
+          <p className="mb-2 text-sm font-bold text-foreground/80">{t("safeResult.chart_title")}</p>
           <div className="flex h-full min-h-[220px] flex-col items-center justify-center rounded-lg border border-border/60 bg-secondary/30 p-3">
             <ResponsiveContainer width="100%" height={170}>
               <PieChart>
@@ -403,20 +412,26 @@ export function rationToText(
   flockUnit: string = "رأس",
   lang: Lang = "ar"
 ): string {
+  // Normalize at the boundary: guarantees achieved/targets/components/costs
+  // are present. Previously this function referenced `safeResult` which was
+  // only defined inside the RationResult component — a scoping bug that would
+  // throw "ReferenceError: safeResult is not defined" whenever the user
+  // shared a ration via WhatsApp/clipboard.
+  const safeResult = normalizeFormulationResult(result);
   const isBird = flockUnit === "طائر" || flockUnit === "bird";
   const tr = (key: string) => SHARE_DICT[lang][key] ?? SHARE_DICT.ar[key] ?? key;
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
-  const fmt = (n: number, d = 2) =>
-    n.toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmt = (n: number | undefined | null, d = 2) =>
+    (n ?? 0).toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
 
   const lines: string[] = [];
   lines.push(`🌿 *${tr("share.brand")}*`);
   lines.push("");
   lines.push(`🐄 ${tr("share.animal")}: ${animalName}`);
   lines.push(`⚖️ ${tr("share.weight")}: ${fmt(weight)} ${tr("common.kg")}`);
-  if (result.flockSize > 1) {
+  if (safeResult.flockSize > 1) {
     lines.push(
-      `${isBird ? "🐔" : "🐂"} ${isBird ? tr("share.birds") : tr("share.heads")}: ${result.flockSize.toLocaleString(
+      `${isBird ? "🐔" : "🐂"} ${isBird ? tr("share.birds") : tr("share.heads")}: ${(safeResult.flockSize ?? 0).toLocaleString(
         numLocale
       )} ${flockUnit}`
     );
@@ -427,7 +442,7 @@ export function rationToText(
   lines.push("");
   lines.push("━━━━━━━━━━━━━━━");
   lines.push(`📝 *${tr("share.composition")}:*`);
-  result.components.forEach((c) => {
+  safeResult.components.forEach((c) => {
     const ingName = lang === "ar" ? c.ingredient.name : c.ingredient.nameEn;
     lines.push(
       `• ${ingName}: ${fmt(c.kg)} ${tr("common.kg")} (${fmt(c.percent, 0)}%) — ${fmt(c.cost)} ${tr("common.egp")}`
@@ -435,19 +450,19 @@ export function rationToText(
   });
   lines.push("━━━━━━━━━━━━━━━");
   lines.push("");
-  lines.push(`💵 ${tr("share.daily_cost")}: ${fmt(result.totalCost)} ${tr("common.egp")}`);
-  lines.push(`📅 ${tr("share.monthly_cost")}: ${fmt(result.costPerMonth)} ${tr("common.egp")}`);
-  if (result.flockSize > 1) {
+  lines.push(`💵 ${tr("share.daily_cost")}: ${fmt(safeResult.totalCost)} ${tr("common.egp")}`);
+  lines.push(`📅 ${tr("share.monthly_cost")}: ${fmt(safeResult.costPerMonth)} ${tr("common.egp")}`);
+  if (safeResult.flockSize > 1) {
     lines.push(
       `${isBird ? "🐣" : "🐂"} ${isBird ? tr("share.per_bird") : tr("share.per_head")}: ${fmt(
-        result.costPerAnimal
+        safeResult.costPerAnimal
       )} ${tr("common.egp")}`
     );
   }
-  lines.push(`📏 ${tr("share.dmi")}: ${fmt(result.dmi)} ${tr("common.kg")}/${tr("common.day")}`);
-  lines.push(`🥩 ${tr("share.protein")}: ${fmt(result.achieved.cp, 1)}%`);
-  lines.push(`⚡ ${tr("share.energy")}: ${fmt(result.achieved.tdn, 1)}%`);
-  lines.push(`🌾 ${tr("share.fiber")}: ${fmt(result.achieved.fiber, 1)}%`);
+  lines.push(`📏 ${tr("share.dmi")}: ${fmt(safeResult.dmi)} ${tr("common.kg")}/${tr("common.day")}`);
+  lines.push(`🥩 ${tr("share.protein")}: ${fmt(safeResult.achieved.cp, 1)}%`);
+  lines.push(`⚡ ${tr("share.energy")}: ${fmt(safeResult.achieved.tdn, 1)}%`);
+  lines.push(`🌾 ${tr("share.fiber")}: ${fmt(safeResult.achieved.fiber, 1)}%`);
   lines.push("");
   lines.push(`⚠️ ${tr("share.disclaimer")}`);
   return lines.join("\n");

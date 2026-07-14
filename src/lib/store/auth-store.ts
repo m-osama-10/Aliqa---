@@ -51,6 +51,8 @@ export const useAuthStore = create<AuthState>()(
         isGuest: s.isGuest,
         rememberMe: s.rememberMe,
       }),
+      // Skip hydration to avoid SSR mismatch — client will rehydrate from localStorage
+      skipHydration: true,
     }
   )
 );

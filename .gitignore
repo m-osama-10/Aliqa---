@@ -52,3 +52,10 @@ prompt
 server.log
 # Skills directory
 /skills/
+# Dev tool artifacts
+tool-results/
+upload/
+dev.log
+dev2.log
+server.log
+*.tmp

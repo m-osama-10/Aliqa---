@@ -24,7 +24,7 @@ export function PWAInstallPrompt() {
     }
 
     // Check if user dismissed before
-    const dismissed = localStorage.getItem(DISMISS_KEY);
+    const dismissed = typeof window !== "undefined" ? localStorage.getItem(DISMISS_KEY) : null;
     if (dismissed) return;
 
     const handler = (e: Event) => {
@@ -55,7 +55,7 @@ export function PWAInstallPrompt() {
 
   const handleDismiss = () => {
     setShow(false);
-    localStorage.setItem(DISMISS_KEY, "1");
+    if (typeof window !== "undefined") localStorage.setItem(DISMISS_KEY, "1");
   };
 
   if (isInstalled || !show) return null;

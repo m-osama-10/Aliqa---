@@ -201,7 +201,7 @@ export interface AnimalProfile {
     fiberMax: number; // crude fiber max %
   };
   /** Per-ingredient bounds as % of ration (0-100). */
-  bounds: Record<IngredientKey, { lb: number; ub: number }>;
+  bounds: Record<string, { lb: number; ub: number }>;
   /** Minimum roughage (hay+straw) % for ruminants. */
   forageMin: number;
 }
@@ -238,14 +238,30 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد رؤوس القطيع",
     flockLabelEn: "Herd size",
     dmi: (w, p) => +(0.025 * w + 0.35 * p).toFixed(2),
-    targets: { cpMin: 14, tdnMin: 63, fiberMax: 26 },
+    // NRC dairy cow: CP 14-16%, TDN 63-68%, NDF min 28-30% (fiber ~17-24%)
+    targets: { cpMin: 15, tdnMin: 65, fiberMax: 24 },
     bounds: {
-      corn: { lb: 15, ub: 50 },
-      soybean: { lb: 0, ub: 28 },
-      bran: { lb: 0, ub: 22 },
-      hay: { lb: 0, ub: 45 },
-      straw: { lb: 0, ub: 18 },
-      premix: { lb: 2, ub: 5 },
+      corn: { lb: 20, ub: 50 },
+      barley: { lb: 0, ub: 30 },
+      sorghum: { lb: 0, ub: 30 },
+      bran: { lb: 0, ub: 20 },
+      rice_bran: { lb: 0, ub: 10 },
+      molasses: { lb: 0, ub: 8 },
+      soybean44: { lb: 5, ub: 30 },
+      soybean46: { lb: 0, ub: 28 },
+      cottonseed: { lb: 0, ub: 15 },
+      sunflower: { lb: 0, ub: 12 },
+      linseed: { lb: 0, ub: 10 },
+      fava_bean: { lb: 0, ub: 15 },
+      hay: { lb: 10, ub: 45 },
+      corn_silage: { lb: 0, ub: 50 },
+      straw: { lb: 0, ub: 15 },
+      limestone: { lb: 0.5, ub: 2 },
+      bicarb: { lb: 0, ub: 1.2 },
+      salt: { lb: 0.3, ub: 1 },
+      mineral_mix: { lb: 0.5, ub: 1.5 },
+      vitamins: { lb: 0.1, ub: 0.3 },
+      toxin_binder: { lb: 0.1, ub: 0.3 },
     },
     forageMin: 40,
     description: "بقرة حلوب وزن ٥٠٠ كجم تنتج حوالي ٢٠ لتر لبن يومياً. تحتاج عاليقة عالية الطاقة والبروتين مع نسبة ألياف كافية للحاظنة.",
@@ -282,14 +298,27 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد رؤوس القطيع",
     flockLabelEn: "Herd size",
     dmi: (w) => +(0.028 * w).toFixed(2),
-    targets: { cpMin: 12, tdnMin: 66, fiberMax: 22 },
+    // NRC fattening buffalo: CP 11-13%, TDN 65-70%, fiber ~20-24%
+    targets: { cpMin: 12.5, tdnMin: 67, fiberMax: 22 },
     bounds: {
-      corn: { lb: 20, ub: 55 },
-      soybean: { lb: 0, ub: 22 },
-      bran: { lb: 0, ub: 25 },
-      hay: { lb: 0, ub: 40 },
-      straw: { lb: 0, ub: 20 },
-      premix: { lb: 2, ub: 5 },
+      corn: { lb: 25, ub: 55 },
+      barley: { lb: 0, ub: 30 },
+      sorghum: { lb: 0, ub: 30 },
+      bran: { lb: 0, ub: 22 },
+      rice_bran: { lb: 0, ub: 10 },
+      molasses: { lb: 0, ub: 8 },
+      soybean44: { lb: 0, ub: 20 },
+      cottonseed: { lb: 0, ub: 18 },
+      sunflower: { lb: 0, ub: 12 },
+      fava_bean: { lb: 0, ub: 12 },
+      hay: { lb: 5, ub: 35 },
+      corn_silage: { lb: 0, ub: 45 },
+      straw: { lb: 0, ub: 18 },
+      limestone: { lb: 0.3, ub: 1.5 },
+      salt: { lb: 0.3, ub: 1 },
+      mineral_mix: { lb: 0.5, ub: 1.5 },
+      vitamins: { lb: 0.1, ub: 0.3 },
+      toxin_binder: { lb: 0.1, ub: 0.3 },
     },
     forageMin: 30,
     description: "جاموس تسمين وزن ٤٠٠ كجم بمعدل نمو حوالي ١ كجم/يوم. يحتاج عاليقة عالية الطاقة لدعم النمو.",
@@ -326,16 +355,27 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد رؤوس القطيع",
     flockLabelEn: "Flock size",
     dmi: (w) => +(0.04 * w).toFixed(2),
-    targets: { cpMin: 13, tdnMin: 65, fiberMax: 22 },
+    // NRC fattening sheep: CP 12-14%, TDN 64-68%, fiber ~18-22%
+    targets: { cpMin: 13.5, tdnMin: 66, fiberMax: 20 },
     bounds: {
-      corn: { lb: 25, ub: 58 },
-      soybean: { lb: 0, ub: 25 },
-      bran: { lb: 0, ub: 22 },
-      hay: { lb: 0, ub: 30 },
-      straw: { lb: 0, ub: 15 },
-      premix: { lb: 2, ub: 5 },
+      corn: { lb: 30, ub: 60 },
+      barley: { lb: 0, ub: 35 },
+      sorghum: { lb: 0, ub: 30 },
+      bran: { lb: 0, ub: 18 },
+      molasses: { lb: 0, ub: 8 },
+      soybean44: { lb: 5, ub: 25 },
+      cottonseed: { lb: 0, ub: 15 },
+      sunflower: { lb: 0, ub: 12 },
+      fava_bean: { lb: 0, ub: 15 },
+      hay: { lb: 5, ub: 25 },
+      straw: { lb: 0, ub: 12 },
+      limestone: { lb: 0.3, ub: 1.5 },
+      salt: { lb: 0.3, ub: 1 },
+      mineral_mix: { lb: 0.5, ub: 1.5 },
+      vitamins: { lb: 0.1, ub: 0.3 },
+      toxin_binder: { lb: 0.1, ub: 0.3 },
     },
-    forageMin: 25,
+    forageMin: 20,
     description: "خروف تسمين وزن ٥٠ كجم بمعدل نمو ٢٥٠ جم/يوم. عاليقة مركزة عالية الطاقة.",
     descriptionEn: "A 50 kg fattening sheep with 250 g/day growth. A concentrated, high-energy ration.",
   },
@@ -370,14 +410,25 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد الطيور في القطيع",
     flockLabelEn: "Flock size",
     dmi: () => 0.115,
-    targets: { cpMin: 16.5, tdnMin: 66, fiberMax: 6 },
+    // NRC layer: CP 16-17%, ME 2750-2900 kcal/kg, fiber max 6%, Ca 3.5-4%
+    targets: { cpMin: 16.5, tdnMin: 67, fiberMax: 6 },
     bounds: {
       corn: { lb: 50, ub: 65 },
-      soybean: { lb: 18, ub: 30 },
-      bran: { lb: 4, ub: 12 },
-      hay: { lb: 0, ub: 0 },
-      straw: { lb: 0, ub: 0 },
-      premix: { lb: 3, ub: 7 },
+      barley: { lb: 0, ub: 15 },
+      sorghum: { lb: 0, ub: 20 },
+      bran: { lb: 2, ub: 10 },
+      molasses: { lb: 0, ub: 5 },
+      soybean44: { lb: 15, ub: 28 },
+      soybean46: { lb: 14, ub: 26 },
+      cottonseed: { lb: 0, ub: 8 },
+      sunflower: { lb: 0, ub: 8 },
+      fava_bean: { lb: 0, ub: 10 },
+      limestone: { lb: 3, ub: 8 },
+      bicarb: { lb: 0, ub: 0.5 },
+      salt: { lb: 0.25, ub: 0.5 },
+      mineral_mix: { lb: 0.5, ub: 1.5 },
+      vitamins: { lb: 0.1, ub: 0.3 },
+      toxin_binder: { lb: 0.1, ub: 0.3 },
     },
     forageMin: 0,
     description: "دجاج بياض وزن ٢ كجم بمعدل إنتاج ٩٠٪. عاليقة مركزة منخفضة الألياف عالية البروتين. حدّد عدد الطيور لحساب تكلفة القطيع كاملاً.",
@@ -415,14 +466,24 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabelEn: "Flock size",
     // Broiler intake grows with weight; ~5% of body weight early, tapering.
     dmi: (w) => +Math.max(0.025, 0.05 * w - 0.01 * Math.max(0, w - 1) ** 2).toFixed(3),
-    targets: { cpMin: 21, tdnMin: 70, fiberMax: 5 },
+    // NRC broiler finisher: CP 19-21%, ME 3000-3200 kcal/kg, fiber max 5%
+    targets: { cpMin: 20, tdnMin: 71, fiberMax: 5 },
     bounds: {
       corn: { lb: 50, ub: 62 },
-      soybean: { lb: 25, ub: 38 },
-      bran: { lb: 0, ub: 8 },
-      hay: { lb: 0, ub: 0 },
-      straw: { lb: 0, ub: 0 },
-      premix: { lb: 3, ub: 7 },
+      barley: { lb: 0, ub: 10 },
+      sorghum: { lb: 0, ub: 15 },
+      bran: { lb: 0, ub: 5 },
+      molasses: { lb: 0, ub: 3 },
+      soybean44: { lb: 22, ub: 35 },
+      soybean46: { lb: 20, ub: 33 },
+      cottonseed: { lb: 0, ub: 5 },
+      sunflower: { lb: 0, ub: 5 },
+      fava_bean: { lb: 0, ub: 8 },
+      limestone: { lb: 0.5, ub: 1.5 },
+      salt: { lb: 0.2, ub: 0.4 },
+      mineral_mix: { lb: 0.5, ub: 1.5 },
+      vitamins: { lb: 0.1, ub: 0.3 },
+      toxin_binder: { lb: 0.1, ub: 0.3 },
     },
     forageMin: 0,
     description: "دجاج تسمين وزن ١.٥ كجم. عاليقة عالية البروتين والطاقة للنمو السريع. حدّد عدد الكتاكيت لحساب تكلفة القطيع كاملاً.",
@@ -459,14 +520,27 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد رؤوس القطيع",
     flockLabelEn: "Herd size",
     dmi: (w, p) => +(0.028 * w + 0.3 * p).toFixed(2),
-    targets: { cpMin: 13, tdnMin: 64, fiberMax: 25 },
+    // NRC dairy buffalo: CP 13-14%, TDN 64-67%, fiber ~22-26%
+    targets: { cpMin: 13.5, tdnMin: 65, fiberMax: 25 },
     bounds: {
-      corn: { lb: 15, ub: 50 },
-      soybean: { lb: 0, ub: 25 },
-      bran: { lb: 0, ub: 22 },
-      hay: { lb: 0, ub: 45 },
-      straw: { lb: 0, ub: 18 },
-      premix: { lb: 2, ub: 5 },
+      corn: { lb: 18, ub: 48 },
+      barley: { lb: 0, ub: 25 },
+      sorghum: { lb: 0, ub: 25 },
+      bran: { lb: 0, ub: 20 },
+      rice_bran: { lb: 0, ub: 10 },
+      molasses: { lb: 0, ub: 8 },
+      soybean44: { lb: 3, ub: 25 },
+      cottonseed: { lb: 0, ub: 15 },
+      sunflower: { lb: 0, ub: 12 },
+      fava_bean: { lb: 0, ub: 12 },
+      hay: { lb: 10, ub: 40 },
+      corn_silage: { lb: 0, ub: 45 },
+      straw: { lb: 0, ub: 15 },
+      limestone: { lb: 0.5, ub: 2 },
+      salt: { lb: 0.3, ub: 1 },
+      mineral_mix: { lb: 0.5, ub: 1.5 },
+      vitamins: { lb: 0.1, ub: 0.3 },
+      toxin_binder: { lb: 0.1, ub: 0.3 },
     },
     forageMin: 40,
     description: "جاموس حلوب وزن ٤٥٠ كجم ينتج حوالي ١٢ لتر لبن يومياً. يحتاج عاليقة عالية الطاقة والبروتين.",
@@ -503,16 +577,28 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد رؤوس القطيع",
     flockLabelEn: "Herd size",
     dmi: (w) => +(0.032 * w).toFixed(2),
-    targets: { cpMin: 16, tdnMin: 68, fiberMax: 18 },
+    // NRC fattening calf: CP 14-16%, TDN 67-70%, fiber ~15-18%
+    targets: { cpMin: 15, tdnMin: 68, fiberMax: 18 },
     bounds: {
-      corn: { lb: 30, ub: 60 },
-      soybean: { lb: 10, ub: 30 },
+      corn: { lb: 30, ub: 55 },
+      barley: { lb: 0, ub: 25 },
+      sorghum: { lb: 0, ub: 25 },
       bran: { lb: 0, ub: 15 },
-      hay: { lb: 0, ub: 25 },
-      straw: { lb: 0, ub: 12 },
-      premix: { lb: 2, ub: 5 },
+      molasses: { lb: 0, ub: 6 },
+      soybean44: { lb: 10, ub: 30 },
+      soybean46: { lb: 8, ub: 28 },
+      cottonseed: { lb: 0, ub: 12 },
+      sunflower: { lb: 0, ub: 10 },
+      fava_bean: { lb: 0, ub: 12 },
+      hay: { lb: 5, ub: 25 },
+      straw: { lb: 0, ub: 10 },
+      limestone: { lb: 0.3, ub: 1.5 },
+      salt: { lb: 0.3, ub: 0.8 },
+      mineral_mix: { lb: 0.5, ub: 1.5 },
+      vitamins: { lb: 0.1, ub: 0.3 },
+      toxin_binder: { lb: 0.1, ub: 0.3 },
     },
-    forageMin: 20,
+    forageMin: 15,
     description: "عجل تسمين وزن ٢٠٠ كجم في مرحلة النمو. يحتاج عاليقة عالية البروتين لبناء العضلات.",
     descriptionEn: "A 200 kg fattening calf in the growth phase. Needs a high-protein ration for muscle building.",
   },
@@ -547,14 +633,24 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد الطيور في القطيع",
     flockLabelEn: "Flock size",
     dmi: () => 0.13,
+    // NRC layer breeder: CP 16-18%, ME 2700-2850, fiber max 6%, Ca 3-4%
     targets: { cpMin: 17, tdnMin: 68, fiberMax: 6 },
     bounds: {
-      corn: { lb: 55, ub: 68 },
-      soybean: { lb: 16, ub: 28 },
-      bran: { lb: 3, ub: 10 },
-      hay: { lb: 0, ub: 0 },
-      straw: { lb: 0, ub: 0 },
-      premix: { lb: 3, ub: 7 },
+      corn: { lb: 52, ub: 66 },
+      barley: { lb: 0, ub: 12 },
+      sorghum: { lb: 0, ub: 18 },
+      bran: { lb: 2, ub: 8 },
+      molasses: { lb: 0, ub: 4 },
+      soybean44: { lb: 14, ub: 26 },
+      soybean46: { lb: 12, ub: 24 },
+      cottonseed: { lb: 0, ub: 6 },
+      sunflower: { lb: 0, ub: 6 },
+      fava_bean: { lb: 0, ub: 8 },
+      limestone: { lb: 3, ub: 8 },
+      salt: { lb: 0.25, ub: 0.5 },
+      mineral_mix: { lb: 0.5, ub: 1.5 },
+      vitamins: { lb: 0.1, ub: 0.3 },
+      toxin_binder: { lb: 0.1, ub: 0.3 },
     },
     forageMin: 0,
     description: "أمهات دجاج بياض وزن ٢.٥ كجم لإنتاج بيض التفقيس. عاليقة عالية البروتين والكالسيوم.",
@@ -591,14 +687,24 @@ export const ANIMALS: Record<AnimalKey, AnimalProfile> = {
     flockLabel: "عدد الطيور في القطيع",
     flockLabelEn: "Flock size",
     dmi: (w) => +(0.06 * w).toFixed(2),
+    // NRC broiler starter: CP 22-24%, ME 3000-3100, fiber max 4%
     targets: { cpMin: 23, tdnMin: 72, fiberMax: 4 },
     bounds: {
-      corn: { lb: 50, ub: 60 },
-      soybean: { lb: 30, ub: 40 },
-      bran: { lb: 0, ub: 5 },
-      hay: { lb: 0, ub: 0 },
-      straw: { lb: 0, ub: 0 },
-      premix: { lb: 3, ub: 7 },
+      corn: { lb: 48, ub: 58 },
+      barley: { lb: 0, ub: 8 },
+      sorghum: { lb: 0, ub: 12 },
+      bran: { lb: 0, ub: 3 },
+      soybean44: { lb: 28, ub: 38 },
+      soybean46: { lb: 26, ub: 36 },
+      cottonseed: { lb: 0, ub: 3 },
+      sunflower: { lb: 0, ub: 3 },
+      fava_bean: { lb: 0, ub: 6 },
+      molasses: { lb: 0, ub: 2 },
+      limestone: { lb: 0.5, ub: 1.2 },
+      salt: { lb: 0.2, ub: 0.35 },
+      mineral_mix: { lb: 0.5, ub: 1.2 },
+      vitamins: { lb: 0.1, ub: 0.25 },
+      toxin_binder: { lb: 0.1, ub: 0.25 },
     },
     forageMin: 0,
     description: "كتاكيت تسمين في مرحلة البادي (الأسبوع الأول) وزن ٠.٥ كجم. عاليقة عالية البروتين جداً للنمو المبكر.",
@@ -638,8 +744,83 @@ export interface FormulationResult {
   costPerKg: number; // EGP/kg of ration
   costPerMonth: number; // EGP/month (30d, total)
   costPerAnimal: number; // EGP/day per single animal
+  costPerTon: number; // EGP/ton (1000 kg)
   achieved: { cp: number; tdn: number; fiber: number };
   targets: { cpMin: number; tdnMin: number; fiberMax: number };
   feasible: boolean;
   warnings: string[];
+}
+
+/* ================================================================== */
+/*  RESULT NORMALIZER — single source of truth                          */
+/*                                                                     */
+/*  Guarantees a COMPLETE FormulationResult from any partial input.     */
+/*  This is the ROOT-CAUSE fix: every result, whether freshly computed  */
+/*  by a formulator OR loaded from localStorage (old schema), passes    */
+/*  through this function so the UI never sees an incomplete result.    */
+/*                                                                     */
+/*  Defense-in-depth:                                                   */
+/*    1. Formulators call this on their return value (catches future    */
+/*       regressions if someone edits a formulator and forgets a field).*/
+/*    2. migrateRation calls this when loading saved rations (fixes the */
+/*       actual source of incomplete results: stale localStorage data). */
+/*    3. Components keep their safeResult guards as a final safety net. */
+/* ================================================================== */
+
+const EMPTY_ACHIEVED = { cp: 0, tdn: 0, fiber: 0 } as const;
+const EMPTY_TARGETS = { cpMin: 0, tdnMin: 0, fiberMax: 0 } as const;
+
+/**
+ * Safely coerce any value to a finite number, returning 0 for NaN/Infinity/null/undefined.
+ * This prevents NaN from propagating into the UI (which would crash .toFixed() etc).
+ */
+function safeNum(v: unknown, fallback = 0): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function normalizeFormulationResult(
+  input: Partial<FormulationResult> | null | undefined
+): FormulationResult {
+  const achieved = input?.achieved ?? EMPTY_ACHIEVED;
+  const targets = input?.targets ?? EMPTY_TARGETS;
+  const components = Array.isArray(input?.components) ? input!.components : [];
+  const warnings = Array.isArray(input?.warnings) ? input!.warnings : [];
+  const flockSize = Math.max(1, safeNum(input?.flockSize, 1));
+  const dmi = safeNum(input?.dmi);
+  const totalCost = safeNum(input?.totalCost);
+  const costPerKg = safeNum(input?.costPerKg, dmi > 0 ? totalCost / dmi : 0);
+  const costPerAnimal = safeNum(
+    input?.costPerAnimal,
+    flockSize > 0 ? totalCost / flockSize : 0
+  );
+
+  return {
+    dmi,
+    perAnimalDmi: safeNum(input?.perAnimalDmi, dmi),
+    flockSize,
+    components: components.map((c) => ({
+      ingredient: c?.ingredient as Ingredient,
+      percent: safeNum(c?.percent),
+      kg: safeNum(c?.kg),
+      cost: safeNum(c?.cost),
+    })),
+    totalCost,
+    costPerKg,
+    costPerMonth: safeNum(input?.costPerMonth, totalCost * 30),
+    costPerAnimal,
+    costPerTon: safeNum(input?.costPerTon, costPerKg * 1000),
+    achieved: {
+      cp: safeNum(achieved.cp),
+      tdn: safeNum(achieved.tdn),
+      fiber: safeNum(achieved.fiber),
+    },
+    targets: {
+      cpMin: safeNum(targets.cpMin),
+      tdnMin: safeNum(targets.tdnMin),
+      fiberMax: safeNum(targets.fiberMax),
+    },
+    feasible: Boolean(input?.feasible ?? false),
+    warnings,
+  };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   Calculator,
   PiggyBank,
@@ -37,33 +37,44 @@ import {
   type AnimalKey,
   type FormulationMode,
   type IngredientKey,
+  normalizeFormulationResult,
 } from "@/lib/feed-data";
-import { computeManualResult, formulateRation } from "@/lib/feed-lp";
-import { usePrices, useRations, type PriceMap } from "@/lib/storage";
+import { computeManualResult, formulateRation, formulateRationWithLocks } from "@/lib/feed-lp";
+import { usePrices, useRations, useIngredients, type PriceMap } from "@/lib/storage";
+import { CATEGORY_LABELS, CATEGORY_ORDER } from "@/lib/ingredient-db";
 import { printRationReport } from "@/lib/ration-report";
 import { useLang } from "@/lib/i18n";
 import { RationResult, rationToText } from "./ration-result";
+import { ManualEditor } from "./manual-editor";
 import { AdSlot, AdSection } from "@/components/ads";
 
 export function CalculatorScreenMobile() {
   const { t, lang } = useLang();
   const { prices, updatePrice, updatedAt, activeProfile } = usePrices();
   const { rations, saveRation } = useRations();
+  const { ingredients } = useIngredients();
 
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
-  const fmt = (n: number, d = 2) =>
-    n.toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmt = (n: number | undefined | null, d = 2) =>
+    (n ?? 0).toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
 
   const [animalKey, setAnimalKey] = useState<AnimalKey>("dairy_cow");
   const [weight, setWeight] = useState(ANIMALS.dairy_cow.defaultWeight);
   const [production, setProduction] = useState(ANIMALS.dairy_cow.productionDefault);
   const [flockSize, setFlockSize] = useState(ANIMALS.dairy_cow.defaultFlockSize);
   const [mode, setMode] = useState<FormulationMode>("balanced");
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: animal, 2: data, 3: prices, 4: result
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1); // 1: animal, 2: data, 3: ingredients, 4: mode, 5: prices, 6: result
+  const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set());
+  const [ingredientSelectionMode, setIngredientSelectionMode] = useState<"auto" | "manual">("auto");
 
   // Manual percentage editing.
   const [manualMode, setManualMode] = useState(false);
-  const [manualPercents, setManualPercents] = useState<Partial<Record<IngredientKey, number>>>({});
+  const [manualPercents, setManualPercents] = useState<Record<string, number>>({});
+  const [lockedKeys, setLockedKeys] = useState<Set<string>>(new Set());
+  const [autoBalance, setAutoBalance] = useState(false);
+  // Nonce to force re-solve when "Smart Rebalance" button is pressed
+  // (enables re-running formulateRationWithLocks even when autoBalance is already ON)
+  const [rebalanceNonce, setRebalanceNonce] = useState(0);
 
   const animal = ANIMALS[animalKey];
 
@@ -74,7 +85,31 @@ export function CalculatorScreenMobile() {
     setFlockSize(ANIMALS[key].defaultFlockSize);
     setManualMode(false);
     setManualPercents({});
+    // Reset ingredient selection when animal changes
+    setSelectedIngredients(new Set());
+    setIngredientSelectionMode("auto");
   };
+
+  // Get ingredients available for this animal (have bounds or default maxUsage)
+  const availableIngredients = useMemo(() => {
+    return ingredients.filter((ing) => {
+      const b = animal.bounds[ing.key];
+      return (b && b.ub > 0) || (!b && ing.maxUsage > 0);
+    });
+  }, [ingredients, animal]);
+
+  // Auto-select ingredients (default: all available)
+  const effectiveSelectedKeys = useMemo(() => {
+    if (ingredientSelectionMode === "auto" || selectedIngredients.size === 0) {
+      return new Set(availableIngredients.map((ing) => ing.key));
+    }
+    return selectedIngredients;
+  }, [ingredientSelectionMode, selectedIngredients, availableIngredients]);
+
+  // Filtered ingredients for formulation (only selected ones)
+  const selectedIngredientObjects = useMemo(() => {
+    return ingredients.filter((ing) => effectiveSelectedKeys.has(ing.key));
+  }, [ingredients, effectiveSelectedKeys]);
 
   // Wrappers that reset manual mode when scenario inputs change.
   const handleWeightChange = (v: number) => {
@@ -99,14 +134,14 @@ export function CalculatorScreenMobile() {
   };
 
   const lpResult = useMemo(
-    () => formulateRation({ animalKey, weight, production, prices, mode, flockSize }),
-    [animalKey, weight, production, prices, mode, flockSize]
+    () => formulateRation({ animalKey, weight, production, prices, mode, flockSize, ingredients: selectedIngredientObjects }),
+    [animalKey, weight, production, prices, mode, flockSize, selectedIngredientObjects]
   );
 
   // Balanced baseline for savings + diff comparison.
   const balancedResult = useMemo(
-    () => formulateRation({ animalKey, weight, production, prices, mode: "balanced", flockSize }),
-    [animalKey, weight, production, prices, flockSize]
+    () => formulateRation({ animalKey, weight, production, prices, mode: "balanced", flockSize, ingredients: selectedIngredientObjects }),
+    [animalKey, weight, production, prices, flockSize, selectedIngredientObjects]
   );
 
   // Reset manual mode when scenario inputs change (not prices).
@@ -114,10 +149,11 @@ export function CalculatorScreenMobile() {
 
   // Enable manual mode: snapshot current LP result into editable percents.
   const enableManual = () => {
-    const snap: Partial<Record<IngredientKey, number>> = {};
-    for (const k of INGREDIENT_ORDER) {
-      const c = lpResult.components.find((c) => c.ingredient.key === k);
-      snap[k] = c ? +c.percent.toFixed(1) : 0;
+    // Snapshot only SELECTED ingredients
+    const snap: Record<string, number> = {};
+    for (const ing of selectedIngredientObjects) {
+      const c = lpResult.components.find((c) => c.ingredient.key === ing.key);
+      snap[ing.key] = c ? +c.percent.toFixed(1) : 0;
     }
     setManualPercents(snap);
     setManualMode(true);
@@ -129,22 +165,85 @@ export function CalculatorScreenMobile() {
   };
 
   // The result to display: manual override if active, else LP.
+  // rebalanceNonce forces re-solve when "Smart Rebalance" is pressed.
   const displayResult = useMemo(() => {
+    if (manualMode && autoBalance) {
+      // Smart balancing: locked ingredients stay fixed, others adjust
+      const lockedPercents: Record<string, number> = {};
+      for (const k of lockedKeys) {
+        lockedPercents[k] = manualPercents[k] ?? 0;
+      }
+      // Active keys = all selected ingredients (including 0% ones)
+      const activeKeys = selectedIngredientObjects.map((ing) => ing.key);
+      return formulateRationWithLocks({
+        animalKey, weight, production, prices, mode, flockSize, ingredients: selectedIngredientObjects,
+        lockedPercents, activeKeys,
+      });
+    }
     if (manualMode) {
       return computeManualResult(
         manualPercents,
         lpResult.perAnimalDmi,
         prices,
-        {
-          cpMin: animal.targets.cpMin,
-          tdnMin: animal.targets.tdnMin,
-          fiberMax: animal.targets.fiberMax,
-        },
-        flockSize
+        { cpMin: animal.targets.cpMin, tdnMin: animal.targets.tdnMin, fiberMax: animal.targets.fiberMax },
+        flockSize, selectedIngredientObjects
       );
     }
     return lpResult;
-  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize]);
+  }, [manualMode, manualPercents, lpResult, prices, animal.targets, flockSize, selectedIngredientObjects, autoBalance, lockedKeys, animalKey, weight, production, mode, rebalanceNonce]);
+
+  // When auto-balance is ON, sync the manualPercents with the computed result
+  // so sliders + inputs reflect the new values automatically.
+  // FIX: sync ALL available keys (init to 0), not just components — otherwise
+  // ingredients the solver set to 0% would keep their old manualPercents value.
+  useEffect(() => {
+    if (manualMode && autoBalance && displayResult.feasible) {
+      const newPercents: Record<string, number> = {};
+      // Initialize ALL selected ingredients to 0
+      for (const ing of selectedIngredientObjects) {
+        newPercents[ing.key] = 0;
+      }
+      // Update from solver components (only non-zero ingredients)
+      for (const c of displayResult.components) {
+        if (newPercents[c.ingredient.key] !== undefined) {
+          newPercents[c.ingredient.key] = +c.percent.toFixed(1);
+        } else {
+          // Component key not in selectedIngredientObjects (stale) — skip
+        }
+      }
+      // Only update if values actually changed (avoid infinite loop)
+      let changed = false;
+      for (const k of Object.keys(newPercents)) {
+        if (Math.abs((manualPercents[k] ?? 0) - newPercents[k]) > 0.05) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed) {
+        setManualPercents(newPercents);
+      }
+    }
+  }, [displayResult, manualMode, autoBalance, selectedIngredientObjects]);
+
+  // Toast feedback after "Smart Rebalance" button is pressed.
+  // Watches rebalanceNonce — runs only when the button is pressed, reads the
+  // latest displayResult.feasible to show success or failure message.
+  useEffect(() => {
+    if (rebalanceNonce === 0) return; // skip initial mount
+    if (!manualMode) return; // safety: only in manual mode
+    if (displayResult.feasible) {
+      toast.success(t("manual.rebalance_success"));
+    } else {
+      toast.error(t("manual.rebalance_failed"));
+    }
+  }, [rebalanceNonce]);
+
+  // Smart Rebalance handler: enables autoBalance + forces re-solve via nonce.
+  // KEEPS locked ingredients (does NOT clear locks) so the solver respects them.
+  const handleRebalance = useCallback(() => {
+    setAutoBalance(true);
+    setRebalanceNonce((n) => n + 1);
+  }, []);
 
   const savings =
     mode === "economy" && !manualMode && lpResult.feasible && balancedResult.feasible
@@ -167,7 +266,7 @@ export function CalculatorScreenMobile() {
     const animalNameLabel = lang === "ar" ? animal.name : animal.nameEn;
     const flockLabel =
       animal.hasFlockInput && flockSize > 1
-        ? ` — ${flockSize.toLocaleString(numLocale)} ${flockUnitLabel}`
+        ? ` — ${(flockSize ?? 0).toLocaleString(numLocale)} ${flockUnitLabel}`
         : "";
     const saved = saveRation({
       name: `${animalNameLabel} — ${weight} ${weightUnitLabel}${flockLabel}${
@@ -252,8 +351,10 @@ export function CalculatorScreenMobile() {
   const steps = [
     { n: 1, label: isRtl ? "الحيوان" : "Animal", icon: "🐄" },
     { n: 2, label: isRtl ? "البيانات" : "Data", icon: "⚖️" },
-    { n: 3, label: isRtl ? "الأسعار" : "Prices", icon: "💰" },
-    { n: 4, label: isRtl ? "النتيجة" : "Result", icon: "📊" },
+    { n: 3, label: isRtl ? "المواد" : "Items", icon: "🌾" },
+    { n: 4, label: isRtl ? "الوضع" : "Mode", icon: "🎯" },
+    { n: 5, label: isRtl ? "الأسعار" : "Prices", icon: "💰" },
+    { n: 6, label: isRtl ? "النتيجة" : "Result", icon: "📊" },
   ];
 
   return (
@@ -263,7 +364,7 @@ export function CalculatorScreenMobile() {
         {steps.map((s, i) => (
           <div key={s.n} className="flex flex-1 items-center gap-1">
             <button
-              onClick={() => setStep(s.n as 1 | 2 | 3 | 4)}
+              onClick={() => setStep(s.n as 1 | 2 | 3 | 4 | 5 | 6)}
               className={cn(
                 "flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 transition-all",
                 step === s.n
@@ -470,9 +571,137 @@ export function CalculatorScreenMobile() {
       </Card>
       )}
 
-      {/* STEP 3: Cost optimizer (mode + prices) */}
+      {/* STEP 3: Ingredient Selection */}
       {step === 3 && (
-      <>
+      <Card className="border-primary/30">
+        <CardContent className="space-y-4 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🌾</span>
+            <p className="text-sm font-extrabold text-foreground">
+              {isRtl ? "اختيار المواد الخام" : "Select Ingredients"}
+            </p>
+          </div>
+
+          {/* Mode toggle: Auto vs Manual */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setIngredientSelectionMode("auto")}
+              className={cn(
+                "rounded-lg border-2 px-3 py-2.5 text-xs font-bold transition-all",
+                ingredientSelectionMode === "auto"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground"
+              )}
+            >
+              {isRtl ? "تلقائي" : "Automatic"}
+              <span className="mt-0.5 block text-[10px] font-normal opacity-80">
+                {isRtl ? "النظام يختار الأفضل" : "System picks best"}
+              </span>
+            </button>
+            <button
+              onClick={() => setIngredientSelectionMode("manual")}
+              className={cn(
+                "rounded-lg border-2 px-3 py-2.5 text-xs font-bold transition-all",
+                ingredientSelectionMode === "manual"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground"
+              )}
+            >
+              {isRtl ? "يدوي" : "Manual"}
+              <span className="mt-0.5 block text-[10px] font-normal opacity-80">
+                {isRtl ? "أختار بنفسي" : "I choose"}
+              </span>
+            </button>
+          </div>
+
+          {/* Manual selection */}
+          {ingredientSelectionMode === "manual" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">
+                {isRtl ? "اختر المواد المتوفرة لديك. سيتم استخدامها فقط في الحسابات." : "Select ingredients available to you. Only these will be used."}
+              </p>
+              {CATEGORY_ORDER.map((cat) => {
+                const catItems = availableIngredients.filter((ing) => ing.category === cat);
+                if (catItems.length === 0) return null;
+                return (
+                  <div key={cat}>
+                    <p className="mb-1.5 text-xs font-bold text-primary">{CATEGORY_LABELS[cat]}</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {catItems.map((ing) => {
+                        const isSelected = selectedIngredients.has(ing.key);
+                        return (
+                          <button
+                            key={ing.key}
+                            onClick={() => {
+                              setSelectedIngredients((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(ing.key)) next.delete(ing.key);
+                                else next.add(ing.key);
+                                return next;
+                              });
+                            }}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-lg border-2 px-2 py-1.5 text-[11px] font-bold transition-all",
+                              isSelected
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border text-muted-foreground hover:border-primary/30"
+                            )}
+                          >
+                            <span className="text-base">{ing.emoji}</span>
+                            <span className="truncate">{isRtl ? ing.name : ing.nameEn}</span>
+                            {isSelected && <span className="text-primary">✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {selectedIngredients.size === 0 && (
+                <p className="rounded-lg bg-amber-50 p-2 text-center text-[11px] text-amber-700">
+                  {isRtl ? "اختر مادة واحدة على الأقل" : "Select at least one ingredient"}
+                </p>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                {isRtl ? `المختار: ${selectedIngredients.size} مادة` : `Selected: ${selectedIngredients.size} items`}
+              </p>
+            </div>
+          )}
+
+          {/* Auto mode info */}
+          {ingredientSelectionMode === "auto" && (
+            <div className="rounded-lg bg-primary/5 p-3 text-center">
+              <p className="text-xs font-bold text-primary">
+                {isRtl ? "النظام سيستخدم جميع المواد المناسبة تلقائياً" : "System will use all suitable ingredients automatically"}
+              </p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {isRtl ? `${availableIngredients.length} مادة متاحة` : `${availableIngredients.length} ingredients available`}
+              </p>
+            </div>
+          )}
+
+          {/* Nav buttons */}
+          <div className="flex justify-between gap-2 pt-2">
+            <Button onClick={() => setStep(2)} variant="outline" size="lg" className="gap-2">
+              <PrevIcon className="h-4 w-4" />
+              {isRtl ? "السابق" : "Back"}
+            </Button>
+            <Button
+              onClick={() => setStep(4)}
+              size="lg"
+              className="gap-2"
+              disabled={ingredientSelectionMode === "manual" && selectedIngredients.size === 0}
+            >
+              {isRtl ? "التالي" : "Next"}
+              <NextIcon className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      )}
+
+      {/* STEP 4: Mode selector (balanced vs economy) */}
+      {step === 4 && (
       <Card className="border-accent/40">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center gap-2">
@@ -525,15 +754,15 @@ export function CalculatorScreenMobile() {
                 <Sparkles className="h-3 w-3" /> {t("calc.diff_label")}
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {INGREDIENT_ORDER.map((k) => {
-                  const bal = balancedResult.components.find((c) => c.ingredient.key === k)?.percent ?? 0;
-                  const eco = lpResult.components.find((c) => c.ingredient.key === k)?.percent ?? 0;
+                {ingredients.map((ing) => {
+                  const bal = balancedResult.components.find((c) => c.ingredient.key === ing.key)?.percent ?? 0;
+                  const eco = lpResult.components.find((c) => c.ingredient.key === ing.key)?.percent ?? 0;
                   const diff = +(eco - bal).toFixed(1);
                   if (Math.abs(diff) < 0.2) return null;
-                  const ingLabel = lang === "ar" ? INGREDIENTS[k].short : INGREDIENTS[k].shortEn;
+                  const ingLabel = lang === "ar" ? ing.name : ing.nameEn;
                   return (
                     <span
-                      key={k}
+                      key={ing.key}
                       className={cn(
                         "rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
                         diff > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"
@@ -546,10 +775,24 @@ export function CalculatorScreenMobile() {
               </div>
             </div>
           )}
+
+          {/* Nav buttons */}
+          <div className="flex justify-between gap-2 pt-2">
+            <Button onClick={() => setStep(3)} variant="outline" size="lg" className="gap-2">
+              <PrevIcon className="h-4 w-4" />
+              {isRtl ? "السابق" : "Back"}
+            </Button>
+            <Button onClick={() => setStep(5)} size="lg" className="gap-2">
+              {isRtl ? "التالي" : "Next"}
+              <NextIcon className="h-4 w-4" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* Prices snapshot — inline editable (also in step 3) */}
+      {/* STEP 5: Prices (inline editable) */}
+      {step === 5 && (
       <Card className="border-border/60 bg-secondary/30">
         <CardContent className="p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -566,38 +809,36 @@ export function CalculatorScreenMobile() {
               <span className="text-[10px] text-muted-foreground">{t("common.default_prices")}</span>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-            {INGREDIENT_ORDER.filter((k) => animal.bounds[k].ub > 0).map((k) => {
-              const ing = INGREDIENTS[k];
-              const Icon = ing.icon;
-              const ingShort = lang === "ar" ? ing.short : ing.shortEn;
+          <div className="grid grid-cols-1 gap-2">
+            {selectedIngredientObjects.map((ing) => {
+              const ingName = lang === "ar" ? ing.name : ing.nameEn;
               return (
                 <div
-                  key={k}
-                  className="flex items-center gap-2 rounded-lg border border-border/50 bg-card px-2.5 py-1.5"
+                  key={ing.key}
+                  className="flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-2"
                 >
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-md text-white"
-                    style={{ backgroundColor: ing.color }}
-                  >
-                    <Icon className="h-3 w-3" />
-                  </span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-base">{ing.emoji}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[11px] font-bold text-foreground">{ingShort}</p>
+                    <p className="text-xs font-bold text-foreground leading-tight">{ingName}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {lang === "ar" ? "بروتين" : "CP"}: {ing.protein}% · {lang === "ar" ? "طاقة" : "TDN"}: {ing.tdn}%
+                    </p>
                   </div>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={0.5}
-                    value={prices[k]}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (isFinite(v) && v >= 0) updatePrice(k, v);
-                    }}
-                    className="w-14 rounded-md border border-border bg-background px-1 py-0.5 text-center text-[11px] font-extrabold tabular-nums focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-                  />
-                  <span className="text-[9px] text-muted-foreground">{t("common.egp")}</span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={0.5}
+                      value={prices[ing.key] ?? ing.price}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (isFinite(v) && v >= 0) updatePrice(ing.key as never, v);
+                      }}
+                      className="w-16 rounded-md border border-border bg-background px-1.5 py-1 text-center text-sm font-extrabold tabular-nums focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">{lang === "ar" ? "ج/كجم" : "EGP/kg"}</span>
+                  </div>
                 </div>
               );
             })}
@@ -606,29 +847,28 @@ export function CalculatorScreenMobile() {
             {t("calc.s4.hint")}
           </p>
 
-          {/* Nav buttons for step 3 (after prices) */}
+          {/* Nav buttons for step 4 (prices → result) */}
           <div className="flex justify-between gap-2 pt-2">
-            <Button onClick={() => setStep(2)} variant="outline" size="lg" className="gap-2">
+            <Button onClick={() => setStep(4)} variant="outline" size="lg" className="gap-2">
               <PrevIcon className="h-4 w-4" />
               {isRtl ? "السابق" : "Back"}
             </Button>
-            <Button onClick={() => setStep(4)} size="lg" className="gap-2">
+            <Button onClick={() => setStep(6)} size="lg" className="gap-2">
               {isRtl ? "احسب العليقة" : "Calculate"}
               <Calculator className="h-4 w-4" />
             </Button>
           </div>
         </CardContent>
       </Card>
-      </>
       )}
 
-      {/* STEP 4: Result */}
-      {step === 4 && (
+      {/* STEP 6: Result */}
+      {step === 6 && (
       <>
       <div>
         {/* Back button */}
         <div className="mb-3 flex justify-start">
-          <Button onClick={() => setStep(3)} variant="outline" size="sm" className="gap-2">
+          <Button onClick={() => setStep(5)} variant="outline" size="sm" className="gap-2">
             <PrevIcon className="h-4 w-4" />
             {isRtl ? "تعديل البيانات" : "Edit data"}
           </Button>
@@ -664,12 +904,30 @@ export function CalculatorScreenMobile() {
           <ManualEditor
             percents={manualPercents}
             onChange={(k, v) => setManualPercents((p) => ({ ...p, [k]: v }))}
+            onDistribute={(updater) => setManualPercents(updater)}
             result={displayResult}
-            availableKeys={INGREDIENT_ORDER.filter((k) => animal.bounds[k].ub > 0)}
+            availableKeys={selectedIngredientObjects.map((ing) => ing.key)}
+            ingredients={selectedIngredientObjects}
             prices={prices}
             onSave={handleSave}
             onShare={handleShare}
             onPdf={handlePdf}
+            onRebalance={handleRebalance}
+            onReset={disableManual}
+            lockedKeys={lockedKeys}
+            onToggleLock={(key) => {
+              setLockedKeys((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              });
+            }}
+            autoBalance={autoBalance}
+            onToggleAutoBalance={() => {
+              setAutoBalance((v) => !v);
+              if (autoBalance) setLockedKeys(new Set());
+            }}
           />
         ) : (
           <RationResult
@@ -722,202 +980,12 @@ export function CalculatorScreenMobile() {
 
 /* ================================================================== */
 /*  MANUAL PERCENTAGE EDITOR                                           */
+/*  Now imported from ./manual-editor.tsx (shared component)          */
 /* ================================================================== */
 
-interface ManualEditorProps {
-  percents: Partial<Record<IngredientKey, number>>;
-  onChange: (key: IngredientKey, value: number) => void;
-  result: import("@/lib/feed-data").FormulationResult;
-  availableKeys: IngredientKey[];
-  prices: PriceMap;
-  onSave: () => void;
-  onShare: () => void;
-  onPdf: () => void;
-}
-
-function ManualEditor({
-  percents,
-  onChange,
-  result,
-  availableKeys,
-  prices,
-  onSave,
-  onShare,
-  onPdf,
-}: ManualEditorProps) {
-  const { t, lang } = useLang();
-  const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
-  const fmt = (n: number, d = 2) =>
-    n.toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
-
-  const sumPct = availableKeys.reduce((s, k) => s + (percents[k] ?? 0), 0);
-  const sumOk = Math.abs(sumPct - 100) <= 0.1;
-
-  // Memoize component rows so only changed rows re-render (#14 perf).
-  const rows = availableKeys.map((k) => {
-    const ing = INGREDIENTS[k];
-    const Icon = ing.icon;
-    const pct = percents[k] ?? 0;
-    const kg = +((pct / 100) * result.dmi).toFixed(3);
-    const cost = +(kg * (prices[k] ?? ing.defaultPrice)).toFixed(2);
-    const ingName = lang === "ar" ? ing.name : ing.nameEn;
-    return { k, ing, Icon, pct, kg, cost, ingName };
-  });
-
-  return (
-    <Card className="border-primary/30">
-      <CardContent className="space-y-4 p-4">
-        {/* Live nutrition + cost summary */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <MiniStat
-            label={t("manual.protein")}
-            value={`${fmt(result.achieved.cp, 1)}%`}
-            ok={result.achieved.cp >= result.targets.cpMin - 0.3}
-            sub={`≥ ${fmt(result.targets.cpMin, 0)}%`}
-          />
-          <MiniStat
-            label={t("manual.energy")}
-            value={`${fmt(result.achieved.tdn, 1)}%`}
-            ok={result.achieved.tdn >= result.targets.tdnMin - 0.5}
-            sub={`≥ ${fmt(result.targets.tdnMin, 0)}%`}
-          />
-          <MiniStat
-            label={t("manual.fiber")}
-            value={`${fmt(result.achieved.fiber, 1)}%`}
-            ok={result.achieved.fiber <= result.targets.fiberMax + 0.5}
-            sub={`≤ ${fmt(result.targets.fiberMax, 0)}%`}
-          />
-          <MiniStat
-            label={t("manual.cost_day")}
-            value={`${fmt(result.totalCost, 0)}`}
-            sub={t("common.egp")}
-          />
-        </div>
-
-        {/* Total bar */}
-        <div className={cn("rounded-lg border p-2.5", sumOk ? "border-primary/30 bg-primary/5" : "border-amber-400/50 bg-amber-50")}>
-          <div className="mb-1 flex items-center justify-between text-[11px]">
-            <span className="font-bold text-foreground">{t("manual.sum_label")}</span>
-            <span className={cn("font-extrabold tabular-nums", sumOk ? "text-primary" : "text-amber-700")}>
-              {fmt(sumPct, 1)}%
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-secondary">
-            <div
-              className={cn("h-full rounded-full transition-all", sumOk ? "bg-primary" : "bg-amber-500")}
-              style={{ width: `${Math.min(100, sumPct)}%` }}
-            />
-          </div>
-          {!sumOk && (
-            <p className="mt-1 text-[10px] font-bold text-amber-700">
-              {sumPct > 100
-                ? t("manual.over", { n: fmt(sumPct - 100, 1) })
-                : t("manual.under", { n: fmt(100 - sumPct, 1) })}
-            </p>
-          )}
-        </div>
-
-        {/* Editable component rows */}
-        <div className="space-y-2">
-          {rows.map(({ k, ing, Icon, pct, kg, cost, ingName }) => (
-              <div key={k} className="rounded-lg border border-border/60 bg-card p-2.5">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-white"
-                    style={{ backgroundColor: ing.color }}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-foreground">{ingName}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {fmt(kg, 2)} {t("common.kg")} · {fmt(cost, 1)} {t("common.egp")} · {t("manual.protein")} {fmt(ing.protein, 1)}%
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      value={pct}
-                      onChange={(e) => onChange(k, Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                      className="w-16 rounded-md border border-border bg-background px-1.5 py-1 text-center text-sm font-extrabold tabular-nums focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                    <span className="text-[10px] text-muted-foreground">%</span>
-                  </div>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  value={pct}
-                  onChange={(e) => onChange(k, Number(e.target.value))}
-                  className="mt-2 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
-                  style={{ accentColor: ing.color }}
-                />
-              </div>
-          ))}
-        </div>
-
-        {result.warnings.length > 0 && (
-          <div className="rounded-lg border border-amber-400/40 bg-amber-50/70 p-2.5">
-            {result.warnings.map((w, i) => (
-              <p key={i} className="flex items-start gap-1.5 text-[11px] text-amber-800">
-                <Info className="mt-0.5 h-3 w-3 shrink-0" />
-                {w}
-              </p>
-            ))}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-          <Button onClick={onSave} size="sm" className="gap-1.5" disabled={!sumOk}>
-            <Check className="h-3.5 w-3.5" /> {t("manual.save")}
-          </Button>
-          <Button onClick={onShare} variant="outline" size="sm" className="gap-1.5" disabled={!sumOk}>
-            {t("common.share")}
-          </Button>
-          <Button onClick={onPdf} variant="outline" size="sm" className="gap-1.5" disabled={!sumOk}>
-            <Printer className="h-3.5 w-3.5" /> {t("common.pdf")}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  sub,
-  ok,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  ok?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border p-2.5",
-        ok === undefined
-          ? "border-border/60 bg-card"
-          : ok
-            ? "border-primary/30 bg-primary/5"
-            : "border-amber-400/40 bg-amber-50/60"
-      )}
-    >
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-      <p className="text-base font-extrabold tabular-nums text-foreground">{value}</p>
-      <p className="text-[10px] text-muted-foreground">{sub}</p>
-    </div>
-  );
-}
+// NOTE: The old inline ManualEditor + MiniStat were moved to the shared
+// manual-editor.tsx component. SectionLabel below is still used by the
+// calculator step UI.
 
 function SectionLabel({ n, title, inline }: { n: string; title: string; inline?: boolean }) {
   return (

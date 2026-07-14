@@ -23,7 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ANIMALS, ANIMAL_ORDER, INGREDIENTS } from "@/lib/feed-data";
+import { ANIMALS, ANIMAL_ORDER } from "@/lib/feed-data";
 import { useLang } from "@/lib/i18n";
 import { LanguageToggle } from "./language-toggle";
 import { ThemeToggle } from "./theme-toggle";
@@ -124,7 +124,7 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
                   <Sprout className="h-3.5 w-3.5" />
                   {t("common.free_offline")}
                 </Badge>
-                <h1 className="text-balance text-3xl font-black leading-[1.15] text-foreground sm:text-4xl lg:text-5xl">
+                <h1 className="text-balance text-3xl font-black leading-[1.4] text-foreground sm:text-4xl lg:text-5xl">
                   {t("landing.hero.title1")}
                   <br />
                   <span className="text-gradient-green">{t("landing.hero.title2")}</span> {t("landing.hero.title3")}
@@ -399,8 +399,11 @@ function HeroStat({ value, label }: { value: string; label: string }) {
 
 function HeroPhoneMockup({ onEnter }: { onEnter: () => void }) {
   const { t, lang } = useLang();
-  const ing = (k: keyof typeof INGREDIENTS) =>
-    lang === "ar" ? INGREDIENTS[k].short : INGREDIENTS[k].shortEn;
+  // Use a simple lookup for the 4 main ingredients shown in the mockup
+  const ingLabels: Record<string, string> = lang === "ar"
+    ? { corn: "ذرة", soybean: "صويا", bran: "ردة", hay: "دريس", straw: "تبن", premix: "إضافات" }
+    : { corn: "Corn", soybean: "Soybean", bran: "Bran", hay: "Hay", straw: "Straw", premix: "Additives" };
+  const ing = (k: string) => ingLabels[k] || k;
   const num = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const dairyCow = lang === "ar" ? ANIMALS.dairy_cow.name : ANIMALS.dairy_cow.nameEn;
 

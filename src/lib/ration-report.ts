@@ -5,6 +5,7 @@ import {
   type FormulationMode,
   type FormulationResult,
   type IngredientKey,
+  normalizeFormulationResult,
 } from "./feed-data";
 import type { PriceMap } from "./storage";
 import type { Lang } from "./i18n";
@@ -127,7 +128,10 @@ interface ReportParams {
  * bilingual output (Arabic RTL or English LTR) via the `lang` param.
  */
 export function printRationReport(params: ReportParams) {
-  const { result, animalKey, weight, production, mode, savings } = params;
+  const { animalKey, weight, production, mode, savings } = params;
+  // Normalize at the boundary: guarantees achieved/targets/components/costs
+  // are all present even if a caller passes a stale saved-ration result.
+  const result = normalizeFormulationResult(params.result);
   const lang: Lang = params.lang ?? "ar";
   const tr = (key: string, vars?: Record<string, string | number>) => {
     let str = REPORT_DICT[lang][key] ?? REPORT_DICT.ar[key] ?? key;
@@ -144,8 +148,8 @@ export function printRationReport(params: ReportParams) {
   const flockUnit = lang === "ar" ? animal.flockUnit : animal.flockUnitEn;
   const isBird = animal.flockUnit === "طائر";
   const numLocale = lang === "ar" ? "ar-EG" : "en-GB";
-  const fmt = (n: number, d = 2) =>
-    n.toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmt = (n: number | undefined | null, d = 2) =>
+    (n ?? 0).toLocaleString(numLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
   const htmlLang = lang === "ar" ? "ar" : "en";
   const htmlDir = lang === "ar" ? "rtl" : "ltr";
   const dateStr = new Date().toLocaleDateString(numLocale, {
@@ -168,7 +172,7 @@ export function printRationReport(params: ReportParams) {
       const ingName = lang === "ar" ? ing.name : ing.nameEn;
       return `<tr>
         <td class="num">${i + 1}</td>
-        <td><span class="dot" style="background:${ing.color}"></span>${ingName}</td>
+        <td><span class="dot" style="background:${(ing as any).color || "#888"}"></span>${ingName}</td>
         <td class="num">${fmt(c.percent, 1)}%</td>
         <td class="num">${fmt(c.kg, 2)} ${tr("report.kg_unit")}</td>
         <td class="num">${fmt(ing.protein, 1)}%</td>
@@ -198,7 +202,7 @@ export function printRationReport(params: ReportParams) {
     ? ` · ${productionLabel}: ${fmt(production, 0)} ${productionUnit}`
     : "";
   const flockMeta = isFlock
-    ? ` · ${isBird ? tr("report.birds_count") : tr("report.heads_count")}: ${flockSize.toLocaleString(
+    ? ` · ${isBird ? tr("report.birds_count") : tr("report.heads_count")}: ${(flockSize ?? 0).toLocaleString(
         numLocale
       )} ${flockUnit}`
     : "";
@@ -212,7 +216,7 @@ export function printRationReport(params: ReportParams) {
   @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
   body {
-    font-family: "Cairo", "Segoe UI", Tahoma, sans-serif;
+    font-family: "Alexandria", "Segoe UI", Tahoma, sans-serif;
     color: #1a2b22;
     margin: 0;
     padding: 0;
@@ -411,7 +415,7 @@ export function printRationReport(params: ReportParams) {
     <div class="flock-box">
       <div class="flock-item">
         <span class="flock-label">${isBird ? "🐔" : "🐂"} ${isBird ? tr("report.birds_count") : tr("report.heads_count")}</span>
-        <span class="flock-value">${flockSize.toLocaleString(numLocale)} ${flockUnit}</span>
+        <span class="flock-value">${(flockSize ?? 0).toLocaleString(numLocale)} ${flockUnit}</span>
       </div>
       <div class="flock-item">
         <span class="flock-label">💵 ${tr("report.daily_cost")}</span>

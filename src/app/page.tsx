@@ -10,28 +10,68 @@ import { AuthProvider, useAuth } from "@/lib/store/auth-context";
 import { useAppStore } from "@/lib/store/app-store";
 import { LanguageProvider } from "@/lib/i18n";
 
+/* ---------- localStorage version check (prevents crashes from old data) ---------- */
+const LS_VERSION_KEY = "alieqa.version";
+const LS_CURRENT_VERSION = "3"; // bump when schema changes
+
+function checkLocalStorageVersion() {
+  if (typeof window === "undefined") return;
+  try {
+    const version = localStorage.getItem(LS_VERSION_KEY);
+    if (version !== LS_CURRENT_VERSION) {
+      // Clear ALL old alieqa.* keys to prevent schema mismatch crashes
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("alieqa.")) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+      localStorage.setItem(LS_VERSION_KEY, LS_CURRENT_VERSION);
+      console.log("[Alieqa] Cleared old localStorage data (version mismatch)");
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+// Run immediately on client
+if (typeof window !== "undefined") {
+  checkLocalStorageVersion();
+}
+
 /* ---------- entered flag (localStorage) ---------- */
 const ENTERED_KEY = "aleeqa.entered.v1";
 const listeners = new Set<() => void>();
+let enteredCache: boolean | null = null; // null = not yet read from localStorage
+
 function subscribe(cb: () => void) {
   listeners.add(cb);
   const onStorage = (e: StorageEvent) => {
-    if (e.key === ENTERED_KEY) cb();
+    if (e.key === ENTERED_KEY) {
+      enteredCache = null; // invalidate cache
+      cb();
+    }
   };
-  window.addEventListener("storage", onStorage);
+  if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(cb);
-    window.removeEventListener("storage", onStorage);
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);
   };
 }
 function notify() {
+  enteredCache = null; // invalidate cache so getSnapshot reads fresh value
   listeners.forEach((l) => l());
 }
 function getSnapshot(): boolean {
-  return localStorage.getItem(ENTERED_KEY) === "1";
+  if (enteredCache === null) {
+    enteredCache = localStorage.getItem(ENTERED_KEY) === "1";
+  }
+  return enteredCache;
 }
 function getServerSnapshot(): boolean {
-  return false;
+  return false; // SSR always renders landing page
 }
 
 /* ---------- UI overlay flags (zustand) ---------- */
@@ -47,6 +87,24 @@ const useUIStore = create<UIState>((set) => ({
   setShowAuth: (showAuth) => set({ showAuth }),
   setShowAdmin: (showAdmin) => set({ showAdmin }),
 }));
+
+function SafeAppInner() {
+  try {
+    return <AppInner />;
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    console.error("[Alieqa Render Error]", err.message, err.stack);
+    return (
+      <div style={{ padding: 20, textAlign: "center", fontFamily: "sans-serif" }}>
+        <h2 style={{ color: "#2E7D4F" }}>حدث خطأ</h2>
+        <p style={{ color: "#666", fontSize: 14 }}>{err.message}</p>
+        <pre style={{ fontSize: 10, color: "#999", textAlign: "left", overflow: "auto" }}>
+{err.stack}
+        </pre>
+      </div>
+    );
+  }
+}
 
 function AppInner() {
   const entered = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -121,9 +179,14 @@ function AppInner() {
   }
 
   // Landing or App
+  // On first client render, always show Landing (enteredCache starts null → false)
+  // After mount, if localStorage has "1", entered becomes true → AppShell
   if (!entered) {
     return <LandingScreen onEnter={enter} />;
   }
+
+  // If entered but no user and not guest, still show AppShell (guest-like access)
+  // The AppShell will prompt for login when needed
 
   return (
     <AppShell
@@ -138,7 +201,7 @@ export default function Home() {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <AppInner />
+        <SafeAppInner />
       </LanguageProvider>
     </AuthProvider>
   );
