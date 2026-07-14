@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Calculator, Coins, BookMarked, Info, Leaf, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
-import { CalculatorScreen } from "./calculator-screen";
+import { CalculatorScreenMobile } from "./calculator-screen-mobile";
 import { PricesScreen } from "./prices-screen";
 import { RationsScreen } from "./rations-screen";
 import { AboutScreen } from "./about-screen";
@@ -67,7 +67,7 @@ export function AppShell({ onHome }: AppShellProps) {
 
       {/* Content */}
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-4">
-        {tab === "calculator" && <CalculatorScreen />}
+        {tab === "calculator" && <CalculatorScreenMobile />}
         {tab === "prices" && <PricesScreen />}
         {tab === "rations" && <RationsScreen />}
         {tab === "about" && <AboutScreen />}

@@ -6,14 +6,12 @@ import { createClient } from "@supabase/supabase-js";
  * RLS enforces all access on the server side.
  *
  * Uses createClient from @supabase/supabase-js (not @supabase/ssr)
- * because it handles localStorage auth persistence correctly in
- * WebView environments (Capacitor/Android).
+ * because it handles localStorage auth persistence correctly in the browser.
  */
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 if (!url || !key) {
-  // eslint-disable-next-line no-console
   console.warn("[supabase] Missing env vars — running in offline/demo mode.");
 }
 
@@ -24,7 +22,7 @@ export const supabase = createClient(
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: false, // important for Capacitor WebView
+      detectSessionInUrl: false,
       storage: typeof window !== "undefined" ? window.localStorage : undefined,
       storageKey: "alieqa.auth.token",
     },

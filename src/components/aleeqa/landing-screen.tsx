@@ -17,7 +17,7 @@ import {
   X,
   Info,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,18 +39,6 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
   const [aboutOpen, setAboutOpen] = useState(false);
   const { t, lang } = useLang();
 
-  // Detect if running inside Capacitor WebView (mobile app)
-  const [isMobileApp, setIsMobileApp] = useState(false);
-  useEffect(() => {
-    const ua = navigator.userAgent || "";
-    const isCapacitor = ua.toLowerCase().includes("capacitor");
-    const isAndroidWebView = ua.includes("wv") && ua.includes("Android");
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-    setIsMobileApp(isCapacitor || isAndroidWebView || isStandalone);
-  }, []);
-
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     setMenuOpen(false);
@@ -61,7 +49,6 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
       {/* Header */}
       <header
         className="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur-lg"
-        style={{ paddingTop: isMobileApp ? "env(safe-area-inset-top, 24px)" : undefined }}
       >
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
           <button onClick={() => scrollTo("top")} className="flex items-center gap-2">

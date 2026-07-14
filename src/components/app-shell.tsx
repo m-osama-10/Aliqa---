@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
-import { CalculatorScreen } from "@/components/aleeqa/calculator-screen";
 import { CalculatorScreenMobile } from "@/components/aleeqa/calculator-screen-mobile";
 import { PricesScreen } from "@/components/aleeqa/prices-screen";
 import { RationsScreen } from "@/components/aleeqa/rations-screen";
@@ -49,21 +48,6 @@ export function AppShell({ onHome, onShowAuth, onShowAdmin }: AppShellProps) {
   const [syncing, setSyncing] = useState(false);
   const { user, isGuest } = useAuth();
   const { setSettings, settings } = useAppStore();
-
-  // Detect if running inside Capacitor WebView (mobile app)
-  // vs regular browser (website)
-  const [isMobileApp, setIsMobileApp] = useState(false);
-  useEffect(() => {
-    const ua = navigator.userAgent || "";
-    // Capacitor WebView adds "Capacitor" to the user agent
-    // Also check for Android WebView (wv) and standalone PWA
-    const isCapacitor = ua.toLowerCase().includes("capacitor");
-    const isAndroidWebView = ua.includes("wv") && ua.includes("Android");
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-    setIsMobileApp(isCapacitor || isAndroidWebView || isStandalone);
-  }, []);
 
   // Load settings from Supabase on mount (dynamic app settings)
   useEffect(() => {
@@ -201,7 +185,7 @@ export function AppShell({ onHome, onShowAuth, onShowAdmin }: AppShellProps) {
           </div>
         )}
 
-        {tab === "calculator" && (isMobileApp ? <CalculatorScreenMobile /> : <CalculatorScreen />)}
+        {tab === "calculator" && <CalculatorScreenMobile />}
         {tab === "prices" && <PricesScreen />}
         {tab === "rations" && <RationsScreen />}
         {tab === "about" && <AboutScreen />}
