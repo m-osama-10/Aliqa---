@@ -158,9 +158,10 @@ export function LandingScreen({ onEnter }: LandingScreenProps) {
                   </Button>
                 </div>
 
-                <div className="mt-8 grid grid-cols-2 gap-2.5">
+                <div className="mt-8 grid grid-cols-3 gap-2.5">
                   <HeroStat value={lang === "ar" ? "٩" : "9"} label={t("landing.hero.stat_animals")} />
                   <HeroStat value={lang === "ar" ? "٢٢" : "22"} label={t("landing.hero.stat_ingredients")} />
+                  <HeroStat value={lang === "ar" ? "مجاني" : "Free"} label={lang === "ar" ? "بلا تسجيل" : "No sign-up"} />
                 </div>
               </div>
 
