@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Alexandria } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { LanguageProvider } from "@/lib/i18n";
@@ -89,17 +90,8 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
-        {/* Google AdSense — MUST be a raw <script> tag (not next/script) so
-            the AdSense crawler can find it in the static HTML for ownership
-            verification. next/script with afterInteractive only adds a
-            <link rel="preload"> + RSC data, which the crawler can't read. */}
-        <script
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-          crossOrigin="anonymous"
-        />
-        {/* Organization JSON-LD schema — embedded as raw HTML so it appears
-            in the static export output for search engine crawlers. */}
+        {/* Organization JSON-LD schema — raw script tag for SEO crawlers.
+            Must stay in <head> as a static tag (no React hydration issues). */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_SCHEMA) }}
@@ -113,6 +105,15 @@ export default function RootLayout({
             {children}
           </LanguageProvider>
         </AuthProvider>
+        {/* Google AdSense — loaded via next/script to avoid hydration mismatch.
+            Placed at end of body so it doesn't interfere with <head> scripts. */}
+        <Script
+          id="adsbygoogle"
+          async
+          strategy="afterInteractive"
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+          crossOrigin="anonymous"
+        />
         <Toaster />
       </body>
     </html>
