@@ -14,6 +14,7 @@ const SITE_URL = "https://aleqa.vercel.app";
 /** Static top-level routes that don't depend on data. */
 const STATIC_ROUTES = [
   "/",
+  "/calculator",
   "/about",
   "/contact",
   "/terms",
